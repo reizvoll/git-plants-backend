@@ -5,7 +5,7 @@
   "main": "dist/server.ts",
   "scripts": {
     "start": "node dist/server.ts",
-    "dev": "nodemon src/server.ts",
+    "dev": "ts-node-dev -r tsconfig-paths/register --respawn src/server.ts",
     "build": "tsc"
   },
   "author": "",
@@ -28,6 +28,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20.11.24",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"
   }
 }
