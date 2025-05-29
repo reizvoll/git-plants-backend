@@ -9,8 +9,8 @@ const router = express.Router();
 
 // start GitHub OAuth login
 router.get('/github', (req, res) => {
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}`;
-  res.redirect(githubAuthUrl);
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}`;
+    res.redirect(githubAuthUrl);
 });
 
 // GitHub OAuth callback
@@ -78,10 +78,10 @@ router.get('/callback/github', async (req, res) => {
     });
     
     // redirect to frontend
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
+    res.redirect(`${process.env.CLIENT_URL}/auth/callback`);
   } catch (error) {
     console.error('GitHub OAuth error:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
+    res.redirect(`${process.env.CLIENT_URL}/auth/error`);
   }
 });
 
