@@ -13,6 +13,5 @@ export const authConfig = {
   jwt: {
     secret: process.env.JWT_SECRET!,
     expiresIn: '1d' as SignOptions['expiresIn'],
-  },
-  frontendURL: process.env.FRONTEND_URL!,
+  }
 }; 
