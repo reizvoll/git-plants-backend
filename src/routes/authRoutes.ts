@@ -54,10 +54,9 @@ router.get('/callback/github', async (req, res) => {
       create: userData,
     });
 
-    // create JWT token - exclude accessToken for security
+    // create JWT token - exclude accessToken and githubId for security
     const payload = { 
       id: user.id,
-      githubId: user.githubId,
       username: user.username,
       image: user.image
     };
@@ -95,8 +94,6 @@ router.get('/session', authToken, async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
-        id: true,
-        githubId: true,
         username: true,
         image: true,
       },

@@ -1,16 +1,7 @@
 import prisma from '@/config/db';
 import { authToken } from '@/middlewares/authMiddleware';
-import express, { Request, Response } from 'express';
-
-// Extend the Request interface to include user from authenticateToken middleware
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    githubId: string;
-    username: string;
-    image?: string;
-  };
-}
+import { AuthRequest } from '@/types/auth';
+import express, { Response } from 'express';
 
 const router = express.Router();
 
@@ -50,7 +41,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Add a new seed to the user's inventory
+// Create a new seed
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { type } = req.body;
@@ -61,64 +52,46 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     
     const seed = await prisma.seed.create({
       data: {
+        type,
         userId: req.user!.id,
-        type
       }
     });
     
     res.status(201).json(seed);
   } catch (error) {
-    res.status(500).json({ message: 'Error adding seed' });
+    res.status(500).json({ message: 'Error creating seed' });
   }
 });
 
-// Use a seed to create a new plant
-router.post('/:id/plant', async (req: AuthRequest, res: Response) => {
+// Update seed
+router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const { name } = req.body;
-    
-    if (!name) {
-      return res.status(400).json({ message: 'Plant name is required' });
-    }
+    const { type } = req.body;
     
     // Check if seed exists and belongs to user
-    const seed = await prisma.seed.findUnique({
+    const existingSeed = await prisma.seed.findUnique({
       where: {
         id: req.params.id,
         userId: req.user!.id
       }
     });
     
-    if (!seed) {
+    if (!existingSeed) {
       return res.status(404).json({ message: 'Seed not found' });
     }
     
-    // Create transaction to delete seed and create plant
-    const result = await prisma.$transaction([
-      // Create new plant
-      prisma.plant.create({
-        data: {
-          userId: req.user!.id,
-          name,
-          stage: 'SEED' // Start at seed stage
-        }
-      }),
-      // Delete the used seed
-      prisma.seed.delete({
-        where: { id: req.params.id }
-      })
-    ]);
-    
-    res.status(201).json({
-      message: 'Seed planted successfully',
-      plant: result[0] // First element is the created plant
+    const updatedSeed = await prisma.seed.update({
+      where: { id: req.params.id },
+      data: { type }
     });
+    
+    res.json(updatedSeed);
   } catch (error) {
-    res.status(500).json({ message: 'Error planting seed' });
+    res.status(500).json({ message: 'Error updating seed' });
   }
 });
 
-// Delete a seed
+// Delete seed
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     // Check if seed exists and belongs to user

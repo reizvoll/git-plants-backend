@@ -1,16 +1,7 @@
 import prisma from '@/config/db';
 import { authToken } from '@/middlewares/authMiddleware';
-import express, { Request, Response } from 'express';
-
-// Extend the Request interface to include user from authenticateToken middleware
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    githubId: string;
-    username: string;
-    image?: string;
-  };
-}
+import { AuthRequest } from '@/types/auth';
+import express, { Response } from 'express';
 
 const router = express.Router();
 
