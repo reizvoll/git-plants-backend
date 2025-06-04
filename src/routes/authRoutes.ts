@@ -91,14 +91,23 @@ router.get('/session', authToken, async (req, res) => {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        username: true,
-        image: true,
-      },
+    const [user, superUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: {
+          username: true,
+          image: true,
+        },
+      }),
+      prisma.superUser.findUnique({
+        where: { userId: req.user.id },
+      }),
+    ]);
+
+    res.json({
+      user,
+      isAdmin: !!superUser
     });
-    res.json(user);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching session' });
   }
