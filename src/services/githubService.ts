@@ -62,7 +62,7 @@ export const fetchUserActivities = async (userId: string, username: string): Pro
   try {
     console.log('Fetching activities for user:', username);
 
-    // 사용자의 accessToken을 데이터베이스에서 가져옴
+    // get user's accessToken from DB
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { accessToken: true }
