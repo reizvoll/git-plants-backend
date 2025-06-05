@@ -145,7 +145,6 @@ model MonthlyPlant {
 model SuperUser {
   id         String         @id @default(cuid())
   userId     String         @unique
-  role       AdminRole      @default(ADMIN)
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   badgeEdits Badge[]        @relation("BadgeUpdatedBy")
@@ -171,10 +170,4 @@ enum GrowthStage {
   GROWING
   MATURE
   HARVEST
-}
-
-enum AdminRole {
-  ADMIN
-  CONTENT
-  SHOP_MANAGER
 }

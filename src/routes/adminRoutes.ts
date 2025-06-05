@@ -1,55 +1,18 @@
 import prisma from '@/config/db';
-import { authToken } from '@/middlewares/authMiddleware';
-import type { AuthRequest } from '@/types/auth';
+import { authToken, isAdmin } from '@/middlewares/authMiddleware';
+import { AuthRequest } from '@/types/auth';
 import express, { Response } from 'express';
-
-// Define AdminRole type
-type AdminRole = 'ADMIN' | 'CONTENT' | 'SHOP_MANAGER';
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authToken);
 
-// Middleware to check if user is an admin
-const isAdmin = async (req: AuthRequest, res: Response, next: Function) => {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-
-  const superUser = await prisma.superUser.findUnique({
-    where: { userId: req.user.id }
-  });
-
-  if (!superUser) {
-    return res.status(403).json({ message: 'Forbidden: Admin access required' });
-  }
-
-  // Add superUser to request for role-based access control
-  req.superUser = superUser;
-  next();
-};
-
-// Role-based access control middleware
-const requireRole = (roles: AdminRole[]) => {
-  return (req: AuthRequest, res: Response, next: Function) => {
-    if (!req.superUser) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    if (!roles.includes(req.superUser.role)) {
-      return res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
-    }
-
-    next();
-  };
-};
-
 // Apply admin check middleware to all routes
 router.use(isAdmin);
 
-// Get admin dashboard stats - ADMIN only
-router.get('/stats', requireRole(['ADMIN']), async (req: AuthRequest, res: Response) => {
+// Get admin dashboard stats
+router.get('/stats', async (req: AuthRequest, res: Response) => {
   try {
     const [
       totalUsers,
@@ -86,8 +49,8 @@ router.get('/stats', requireRole(['ADMIN']), async (req: AuthRequest, res: Respo
   }
 });
 
-// MONTHLY PLANT MANAGEMENT - CONTENT and ADMIN
-router.get('/monthly-plants', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest, res: Response) => {
+// MONTHLY PLANT MANAGEMENT
+router.get('/monthly-plants', async (req: AuthRequest, res: Response) => {
   try {
     const monthlyPlants = await prisma.monthlyPlant.findMany({
       orderBy: [
@@ -101,7 +64,7 @@ router.get('/monthly-plants', requireRole(['ADMIN', 'CONTENT']), async (req: Aut
   }
 });
 
-router.post('/monthly-plants', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest, res: Response) => {
+router.post('/monthly-plants', async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, imageUrl, month, year } = req.body;
     
@@ -139,7 +102,7 @@ router.post('/monthly-plants', requireRole(['ADMIN', 'CONTENT']), async (req: Au
   }
 });
 
-router.put('/monthly-plants/:id', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest, res: Response) => {
+router.put('/monthly-plants/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, imageUrl } = req.body;
     
@@ -159,8 +122,8 @@ router.put('/monthly-plants/:id', requireRole(['ADMIN', 'CONTENT']), async (req:
   }
 });
 
-// GARDEN ITEM MANAGEMENT - SHOP_MANAGER and ADMIN
-router.get('/items', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: AuthRequest, res: Response) => {
+// GARDEN ITEM MANAGEMENT
+router.get('/items', async (req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.gardenItem.findMany({
       orderBy: { category: 'asc' }
@@ -171,7 +134,7 @@ router.get('/items', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: AuthReq
   }
 });
 
-router.post('/items', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: AuthRequest, res: Response) => {
+router.post('/items', async (req: AuthRequest, res: Response) => {
   try {
     const { name, category, imageUrl, price } = req.body;
     
@@ -196,7 +159,7 @@ router.post('/items', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: AuthRe
   }
 });
 
-router.put('/items/:id', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: AuthRequest, res: Response) => {
+router.put('/items/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { name, category, imageUrl, price } = req.body;
     
@@ -217,8 +180,8 @@ router.put('/items/:id', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: Aut
   }
 });
 
-// BADGE MANAGEMENT - CONTENT and ADMIN
-router.get('/badges', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest, res: Response) => {
+// BADGE MANAGEMENT
+router.get('/badges', async (req: AuthRequest, res: Response) => {
   try {
     const badges = await prisma.badge.findMany();
     res.json(badges);
@@ -227,7 +190,7 @@ router.get('/badges', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest
   }
 });
 
-router.post('/badges', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest, res: Response) => {
+router.post('/badges', async (req: AuthRequest, res: Response) => {
   try {
     const { name, condition, imageUrl } = req.body;
     
@@ -251,7 +214,7 @@ router.post('/badges', requireRole(['ADMIN', 'CONTENT']), async (req: AuthReques
   }
 });
 
-router.put('/badges/:id', requireRole(['ADMIN', 'CONTENT']), async (req: AuthRequest, res: Response) => {
+router.put('/badges/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { name, condition, imageUrl } = req.body;
     
@@ -271,8 +234,8 @@ router.put('/badges/:id', requireRole(['ADMIN', 'CONTENT']), async (req: AuthReq
   }
 });
 
-// ADMIN USER MANAGEMENT - ADMIN only
-router.get('/users', requireRole(['ADMIN']), async (req: AuthRequest, res: Response) => {
+// ADMIN USER MANAGEMENT
+router.get('/users', async (req: AuthRequest, res: Response) => {
   try {
     const superUsers = await prisma.superUser.findMany({
       include: { user: true }
@@ -283,9 +246,9 @@ router.get('/users', requireRole(['ADMIN']), async (req: AuthRequest, res: Respo
   }
 });
 
-router.post('/users', requireRole(['ADMIN']), async (req: AuthRequest, res: Response) => {
+router.post('/users', async (req: AuthRequest, res: Response) => {
   try {
-    const { userId, role } = req.body;
+    const { userId } = req.body;
     
     // Check if user exists
     const user = await prisma.user.findUnique({
@@ -307,8 +270,7 @@ router.post('/users', requireRole(['ADMIN']), async (req: AuthRequest, res: Resp
     
     const superUser = await prisma.superUser.create({
       data: {
-        userId,
-        role: role || 'ADMIN'
+        userId
       }
     });
     
@@ -318,13 +280,10 @@ router.post('/users', requireRole(['ADMIN']), async (req: AuthRequest, res: Resp
   }
 });
 
-router.put('/users/:id', requireRole(['ADMIN']), async (req: AuthRequest, res: Response) => {
+router.put('/users/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const { role } = req.body;
-    
-    const updatedSuperUser = await prisma.superUser.update({
-      where: { id: req.params.id },
-      data: { role }
+    const updatedSuperUser = await prisma.superUser.findUnique({
+      where: { id: req.params.id }
     });
     
     res.json(updatedSuperUser);
@@ -333,7 +292,7 @@ router.put('/users/:id', requireRole(['ADMIN']), async (req: AuthRequest, res: R
   }
 });
 
-router.delete('/users/:id', requireRole(['ADMIN']), async (req: AuthRequest, res: Response) => {
+router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
   try {
     await prisma.superUser.delete({
       where: { id: req.params.id }
