@@ -1,10 +1,18 @@
+import { authToken, isAdmin } from '@/middlewares/authMiddleware';
 import { PrismaClient } from '@prisma/client';
-import express from 'express';
+import express, { Response } from 'express';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary';
+import { AuthRequest } from '../types/auth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Apply authentication middleware to all routes
+router.use(authToken);
+
+// Apply admin check middleware to all routes
+router.use(isAdmin);
 
 // set type for cloudinary upload result
 interface CloudinaryUploadResult {
@@ -34,7 +42,7 @@ const uploadToCloudinary = async (file: Express.Multer.File, preset: string, fol
 };
 
 // upload crop image
-router.post('/crops', upload.single('image'), async (req, res) => {
+router.post('/crops', upload.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
@@ -60,7 +68,7 @@ router.post('/crops', upload.single('image'), async (req, res) => {
 });
 
 // upload background image
-router.post('/backgrounds', upload.single('image'), async (req, res) => {
+router.post('/backgrounds', upload.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
@@ -86,7 +94,7 @@ router.post('/backgrounds', upload.single('image'), async (req, res) => {
 });
 
 // upload pot image
-router.post('/pots', upload.single('image'), async (req, res) => {
+router.post('/pots', upload.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
@@ -112,25 +120,49 @@ router.post('/pots', upload.single('image'), async (req, res) => {
 });
 
 // upload badge image
-router.post('/badges', upload.single('image'), async (req, res) => {
+router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
     }
 
+    const { name, condition } = req.body;
+    
+    // Validate required fields
+    if (!name || !condition) {
+      return res.status(400).json({ message: '뱃지 이름과 획득 조건이 필요합니다.' });
+    }
+
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(badges)', 'images/badges', filename);
     
-    // save image info to DB
-    const uploadedImage = await prisma.uploadedImage.create({
-      data: {
-        type: 'BADGE',
-        name: filename,
-        url: result.secure_url
-      }
-    });
+    // Create both UploadedImage and Badge records
+    const [uploadedImage, badge] = await prisma.$transaction([
+      prisma.uploadedImage.create({
+        data: {
+          type: 'BADGE',
+          name: filename,
+          url: result.secure_url
+        }
+      }),
+      prisma.badge.create({
+        data: {
+          name,
+          condition,
+          imageUrl: result.secure_url,
+          updatedById: req.superUser!.id
+        }
+      })
+    ]);
 
-    res.json({ success: true, data: { ...result, dbRecord: uploadedImage } });
+    res.json({ 
+      success: true, 
+      data: { 
+        ...result, 
+        uploadedImage,
+        badge 
+      } 
+    });
   } catch (error) {
     console.error('뱃지 이미지 업로드 에러:', error);
     res.status(500).json({ success: false, message: '이미지 업로드에 실패했습니다.' });
