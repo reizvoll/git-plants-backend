@@ -144,7 +144,7 @@ router.put('/monthly-plants/:id', requireRole(['ADMIN', 'CONTENT']), async (req:
     const { title, description, imageUrl } = req.body;
     
     const updatedPlant = await prisma.monthlyPlant.update({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       data: {
         title,
         description,
@@ -201,7 +201,7 @@ router.put('/items/:id', requireRole(['ADMIN', 'SHOP_MANAGER']), async (req: Aut
     const { name, category, imageUrl, price } = req.body;
     
     const updatedItem = await prisma.gardenItem.update({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       data: {
         name,
         category,
@@ -256,7 +256,7 @@ router.put('/badges/:id', requireRole(['ADMIN', 'CONTENT']), async (req: AuthReq
     const { name, condition, imageUrl } = req.body;
     
     const updatedBadge = await prisma.badge.update({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       data: {
         name,
         condition,

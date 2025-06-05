@@ -8,111 +8,76 @@ const router = express.Router();
 // Apply authentication middleware to all routes
 router.use(authToken);
 
-// Get all user's seeds
+// Get user's seed count
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const seeds = await prisma.seed.findMany({
-      where: { userId: req.user!.id },
-      orderBy: { obtainedAt: 'desc' }
+    const seed = await prisma.seed.findUnique({
+      where: { userId: req.user!.id }
     });
-    res.json(seeds);
+    
+    res.json(seed || { userId: req.user!.id, count: 0 });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching seeds' });
+    res.status(500).json({ message: 'Error fetching seed count' });
   }
 });
 
-// Get seed by ID
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+// Add seeds to user
+router.post('/add', async (req: AuthRequest, res: Response) => {
   try {
-    const seed = await prisma.seed.findUnique({
-      where: {
-        id: req.params.id,
-        userId: req.user!.id
+    const { count } = req.body;
+    
+    if (!count || count <= 0) {
+      return res.status(400).json({ message: 'Valid seed count is required' });
+    }
+    
+    const seed = await prisma.seed.upsert({
+      where: { userId: req.user!.id },
+      update: {
+        count: {
+          increment: count
+        }
+      },
+      create: {
+        userId: req.user!.id,
+        count
       }
     });
-    
-    if (!seed) {
-      return res.status(404).json({ message: 'Seed not found' });
-    }
     
     res.json(seed);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching seed' });
+    res.status(500).json({ message: 'Error adding seeds' });
   }
 });
 
-// Create a new seed
-router.post('/', async (req: AuthRequest, res: Response) => {
+// Use seeds
+router.post('/use', async (req: AuthRequest, res: Response) => {
   try {
-    const { type } = req.body;
+    const { count } = req.body;
     
-    if (!type) {
-      return res.status(400).json({ message: 'Seed type is required' });
+    if (!count || count <= 0) {
+      return res.status(400).json({ message: 'Valid seed count is required' });
     }
     
-    const seed = await prisma.seed.create({
-      data: {
-        type,
-        userId: req.user!.id,
-      }
+    const seed = await prisma.seed.findUnique({
+      where: { userId: req.user!.id }
     });
     
-    res.status(201).json(seed);
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating seed' });
-  }
-});
-
-// Update seed
-router.put('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    const { type } = req.body;
-    
-    // Check if seed exists and belongs to user
-    const existingSeed = await prisma.seed.findUnique({
-      where: {
-        id: req.params.id,
-        userId: req.user!.id
-      }
-    });
-    
-    if (!existingSeed) {
-      return res.status(404).json({ message: 'Seed not found' });
+    if (!seed || seed.count < count) {
+      return res.status(400).json({ message: 'Not enough seeds' });
     }
     
     const updatedSeed = await prisma.seed.update({
-      where: { id: req.params.id },
-      data: { type }
+      where: { userId: req.user!.id },
+      data: {
+        count: {
+          decrement: count
+        }
+      }
     });
     
     res.json(updatedSeed);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating seed' });
-  }
-});
-
-// Delete seed
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    // Check if seed exists and belongs to user
-    const seed = await prisma.seed.findUnique({
-      where: {
-        id: req.params.id,
-        userId: req.user!.id
-      }
-    });
-    
-    if (!seed) {
-      return res.status(404).json({ message: 'Seed not found' });
-    }
-    
-    await prisma.seed.delete({
-      where: { id: req.params.id }
-    });
-    
-    res.json({ message: 'Seed deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting seed' });
+    res.status(500).json({ message: 'Error using seeds' });
   }
 });
 

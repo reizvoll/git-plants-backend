@@ -26,7 +26,7 @@ router.get('/items', async (req: AuthRequest, res: Response) => {
 router.get('/items/:id', async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.gardenItem.findUnique({
-      where: { id: req.params.id }
+      where: { id: parseInt(req.params.id) }
     });
     
     if (!item) {
@@ -62,7 +62,7 @@ router.post('/user-items', async (req: AuthRequest, res: Response) => {
     
     // Check if item exists
     const item = await prisma.gardenItem.findUnique({
-      where: { id: itemId }
+      where: { id: parseInt(itemId) }
     });
     
     if (!item) {
@@ -73,7 +73,7 @@ router.post('/user-items', async (req: AuthRequest, res: Response) => {
     const existingItem = await prisma.userItem.findFirst({
       where: {
         userId: req.user!.id,
-        itemId
+        itemId: parseInt(itemId)
       }
     });
     
@@ -85,7 +85,7 @@ router.post('/user-items', async (req: AuthRequest, res: Response) => {
     const userItem = await prisma.userItem.create({
       data: {
         userId: req.user!.id,
-        itemId,
+        itemId: parseInt(itemId),
         equipped: false
       }
     });

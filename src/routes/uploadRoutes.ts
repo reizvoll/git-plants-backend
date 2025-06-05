@@ -6,17 +6,17 @@ import cloudinary from '../config/cloudinary';
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Cloudinary 응답 타입 정의
+// set type for cloudinary upload result
 interface CloudinaryUploadResult {
   secure_url: string;
   [key: string]: any;
 }
 
-// Multer 설정
+// set multer storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// 공통 업로드 함수
+// common upload function
 const uploadToCloudinary = async (file: Express.Multer.File, preset: string, folder: string, filename?: string): Promise<CloudinaryUploadResult> => {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
@@ -33,7 +33,7 @@ const uploadToCloudinary = async (file: Express.Multer.File, preset: string, fol
   });
 };
 
-// 작물 이미지 업로드
+// upload crop image
 router.post('/crops', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -43,7 +43,7 @@ router.post('/crops', upload.single('image'), async (req, res) => {
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(crops)', 'images/crops', filename);
     
-    // DB에 이미지 정보 저장
+    // save image info to DB
     const uploadedImage = await prisma.uploadedImage.create({
       data: {
         type: 'CROP',
@@ -59,7 +59,7 @@ router.post('/crops', upload.single('image'), async (req, res) => {
   }
 });
 
-// 배경화면 이미지 업로드
+// upload background image
 router.post('/backgrounds', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -69,7 +69,7 @@ router.post('/backgrounds', upload.single('image'), async (req, res) => {
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(backgrounds)', 'items/backgrounds', filename);
     
-    // DB에 이미지 정보 저장
+    // save image info to DB
     const uploadedImage = await prisma.uploadedImage.create({
       data: {
         type: 'BACKGROUND',
@@ -85,7 +85,7 @@ router.post('/backgrounds', upload.single('image'), async (req, res) => {
   }
 });
 
-// 화분 이미지 업로드
+// upload pot image
 router.post('/pots', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -95,7 +95,7 @@ router.post('/pots', upload.single('image'), async (req, res) => {
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(pots)', 'items/pots', filename);
     
-    // DB에 이미지 정보 저장
+    // save image info to DB
     const uploadedImage = await prisma.uploadedImage.create({
       data: {
         type: 'POT',
@@ -111,7 +111,7 @@ router.post('/pots', upload.single('image'), async (req, res) => {
   }
 });
 
-// 뱃지 이미지 업로드
+// upload badge image
 router.post('/badges', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -121,7 +121,7 @@ router.post('/badges', upload.single('image'), async (req, res) => {
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(badges)', 'images/badges', filename);
     
-    // DB에 이미지 정보 저장
+    // save image info to DB
     const uploadedImage = await prisma.uploadedImage.create({
       data: {
         type: 'BADGE',
