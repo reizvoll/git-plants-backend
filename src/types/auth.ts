@@ -9,7 +9,6 @@ export interface AuthRequest extends Request {
   superUser?: {
     id: string;
     userId: string;
-    role: 'ADMIN' | 'CONTENT' | 'SHOP_MANAGER';
     createdAt: Date;
     updatedAt: Date;
   };
