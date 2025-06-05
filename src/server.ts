@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes';
 import gardenRoutes from './routes/gardenRoutes';
 import plantRoutes from './routes/plantRoutes';
 import seedRoutes from './routes/seedRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 import userRoutes from './routes/userRoutes';
 
 dotenv.config();
@@ -26,6 +27,7 @@ app.use('/api/plants', plantRoutes);
 app.use('/api/seeds', seedRoutes);
 app.use('/api/garden', gardenRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
