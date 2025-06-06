@@ -1,14 +1,15 @@
 import { authConfig } from '@/config/auth';
 import prisma from '@/config/db';
-import { authToken } from '@/middlewares/authMiddleware';
+import { clientAuth, generateTokens, logout } from '@/middlewares/authMiddleware';
+import { loginLimiter } from '@/middlewares/rateLimiter';
+import { AuthRequest } from '@/types/auth';
 import axios from 'axios';
-import express from 'express';
-import jwt from 'jsonwebtoken';
+import express, { Response } from 'express';
 
 const router = express.Router();
 
 // start GitHub OAuth login
-router.get('/github', (req, res) => {
+router.get('/github', loginLimiter, (req, res) => {
     const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}`;
     res.redirect(githubAuthUrl);
 });
@@ -54,26 +55,18 @@ router.get('/callback/github', async (req, res) => {
       create: userData,
     });
 
-    // create JWT token - exclude accessToken and githubId for security
-    const payload = { 
-      id: user.id,
-      username: user.username,
-      image: user.image
-    };
+    // generate tokens
+    const tokens = await generateTokens(user.id, false);
 
-    const token = jwt.sign(
-      payload,
-      authConfig.jwt.secret,
-      { expiresIn: authConfig.jwt.expiresIn }
-    );
+    // set cookies
+    res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
+      ...authConfig.cookie.client.options,
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
 
-    // send token to cookie (instead of URL parameter)
-    res.cookie('auth_token', token, {
-      httpOnly: true,  // JavaScript cannot access
-      secure: true, // required for HTTPS (development and production)
-      sameSite: 'none',  // for cross-domain cookies
-      maxAge: 24 * 60 * 60 * 1000,
-      path: '/'
+    res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
+      ...authConfig.cookie.client.options,
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     
     // redirect to frontend
@@ -85,7 +78,7 @@ router.get('/callback/github', async (req, res) => {
 });
 
 // check session
-router.get('/session', authToken, async (req, res) => {
+router.get('/session', clientAuth, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user?.id) {
       return res.status(401).json({ message: 'User not authenticated' });
@@ -113,16 +106,7 @@ router.get('/session', authToken, async (req, res) => {
   }
 });
 
-// logout - remove cookie
-router.post('/signout', (req, res) => {
-  res.cookie('auth_token', '', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    path: '/',
-    expires: new Date(0)
-  });
-  res.json({ message: 'Signed out successfully' });
-});
+// logout
+router.post('/signout', clientAuth, logout);
 
 export default router; 
