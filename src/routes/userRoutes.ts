@@ -2,12 +2,12 @@ import prisma from '@/config/db';
 import { createUser, deleteUser, getUser, updateUser } from '@/controllers/authController';
 import { AuthRequest } from '@/types/auth';
 import express from 'express';
-import { authToken } from '../middlewares/authMiddleware';
+import { clientAuth } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(authToken);
+router.use(clientAuth);
 
 // Get user profile with all related information
 router.get('/profile', async (req: AuthRequest, res) => {

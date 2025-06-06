@@ -2,12 +2,12 @@ import { AuthRequest } from '@/types/auth';
 import { ActivityFilter, GroupByStats, GroupByTimeline } from '@/types/github';
 import express, { Response } from 'express';
 import prisma from '../config/db';
-import { authToken } from '../middlewares/authMiddleware';
+import { clientAuth } from '../middlewares/authMiddleware';
 import { autoSyncLimiter } from '../middlewares/rateLimiter';
 import { setupAutoSync, stopAutoSync } from '../services/githubService';
 
 const router = express.Router();
-router.use(authToken);
+router.use(clientAuth);
 
 // Get user's GitHub activities
 router.get('/', async (req: AuthRequest, res: Response) => {
