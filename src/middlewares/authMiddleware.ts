@@ -1,63 +1,232 @@
 import { authConfig } from '@/config/auth';
 import prisma from '@/config/db';
-import { AuthRequest } from '@/types/auth';
+import { AccessTokenPayload, TokenResponse, UserPayload } from '@/types/auth';
+import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 
 declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        username: string;
-        image?: string;
-      };
+    namespace Express {
+        interface Request {
+            user?: UserPayload;
+            isAdmin?: boolean;
+        }
     }
-  }
 }
 
-export const authToken = (req: Request, res: Response, next: NextFunction) => {
-  // check token is vaild in Authorization header
-  const authHeader = req.headers['authorization'];
-  const headerToken = authHeader && authHeader.split(' ')[1];
-  
-  // check token is vaild in cookie
-  const cookieToken = req.cookies?.auth_token;
-  
-  // get token from header or cookie
-  const token = headerToken || cookieToken;
+// token management
+const blacklist = new Map<string, number>();
+setInterval(() => {
+    const now = Math.floor(Date.now() / 1000);
+    for (const [token, expiresAt] of blacklist.entries()) {
+        if (expiresAt < now) blacklist.delete(token);
+    }
+}, 60 * 60 * 1000);
 
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
+export const blacklistToken = (token: string, expiresAt: number) => blacklist.set(token, expiresAt);
+export const isTokenBlacklisted = (token: string): boolean => blacklist.has(token);
 
-  try {
-    const decoded = jwt.verify(token, authConfig.jwt.secret) as {
-      id: string;
-      username: string;
-      image?: string;
-    };
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ message: 'Invalid token' });
-  }
-}; 
+// generate tokens
+export const generateTokens = async (userId: string, isAdmin: boolean = false): Promise<TokenResponse> => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true, image: true }
+    });
+    if (!user) throw new Error('User not found');
 
-export const isAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
+    const accessToken = jwt.sign(
+        { 
+            id: user.id, 
+            username: user.username, 
+            image: user.image || undefined,
+            isAdmin 
+        },
+        authConfig.jwt.secret,
+        { expiresIn: authConfig.jwt.accessTokenExpiresIn }
+    );
 
-  const superUser = await prisma.superUser.findUnique({
-    where: { userId: req.user.id }
-  });
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  if (!superUser) {
-    return res.status(403).json({ message: 'Forbidden: Admin access required' });
-  }
+    await prisma.refreshToken.create({
+        data: { 
+            token: refreshToken, 
+            userId: user.id, 
+            expiresAt,
+            isAdmin 
+        }
+    });
 
-  // Add superUser to request for role-based access control
-  req.superUser = superUser;
-  next();
+    return { accessToken, refreshToken, expiresAt };
+};
+
+// logout
+export const logout = async (req: Request, res: Response) => {
+    try {
+        const isAdmin = req.path.startsWith('/admin');
+        const cookieConfig = isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
+        
+        const token = req.headers.authorization?.split(' ')[1];
+        if (token) {
+            const decoded = jwt.decode(token) as AccessTokenPayload;
+            if (decoded?.exp) {
+                blacklistToken(token, decoded.exp);
+            }
+        }
+        
+        const refreshToken = req.cookies[cookieConfig.refreshTokenName];
+        if (refreshToken) {
+            await prisma.refreshToken.updateMany({
+                where: { token: refreshToken },
+                data: { isRevoked: true }
+            });
+        }
+
+        // Clear cookies
+        res.clearCookie(cookieConfig.accessTokenName, cookieConfig.options);
+        res.clearCookie(cookieConfig.refreshTokenName, cookieConfig.options);
+
+        return res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        return res.status(500).json({ message: 'Error during logout' });
+    }
+};
+
+// client auth middleware
+export const clientAuth = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: 'No token provided' });
+        if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
+
+        try {
+            const decoded = jwt.verify(token, authConfig.jwt.secret) as AccessTokenPayload;
+            if (decoded.isAdmin) {
+                return res.status(403).json({ message: 'Admin token not allowed for client routes' });
+            }
+            req.user = { id: decoded.id, username: decoded.username, image: decoded.image };
+            next();
+        } catch (error) {
+            if (!(error instanceof jwt.TokenExpiredError)) throw error;
+
+            const refreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
+            if (!refreshToken) return res.status(401).json({ message: 'Token expired' });
+
+            const storedToken = await prisma.refreshToken.findUnique({
+                where: { token: refreshToken },
+                include: { user: true }
+            });
+
+            if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked || storedToken.isAdmin) {
+                return res.status(401).json({ message: 'Invalid refresh token' });
+            }
+
+            const tokens = await generateTokens(storedToken.userId, false);
+            
+            await prisma.refreshToken.update({
+                where: { id: storedToken.id },
+                data: { isRevoked: true }
+            });
+
+            res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
+                ...authConfig.cookie.client.options,
+                maxAge: 15 * 60 * 1000
+            });
+
+            res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
+                ...authConfig.cookie.client.options,
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+
+            return res.status(200).json({ message: 'Token refreshed' });
+        }
+    } catch (error) {
+        console.error('Auth error:', error);
+        return res.status(401).json({ message: 'Invalid token' });
+    }
+};
+
+// admin auth middleware
+export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: 'No token provided' });
+        if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
+
+        try {
+            const decoded = jwt.verify(token, authConfig.jwt.secret) as AccessTokenPayload;
+            if (!decoded.isAdmin) {
+                return res.status(403).json({ message: 'Client token not allowed for admin routes' });
+            }
+            req.user = { id: decoded.id, username: decoded.username, image: decoded.image };
+            req.isAdmin = true;
+            next();
+        } catch (error) {
+            if (!(error instanceof jwt.TokenExpiredError)) throw error;
+
+            const refreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
+            if (!refreshToken) return res.status(401).json({ message: 'Token expired' });
+
+            const storedToken = await prisma.refreshToken.findUnique({
+                where: { token: refreshToken },
+                include: { user: true }
+            });
+
+            if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked || !storedToken.isAdmin) {
+                return res.status(401).json({ message: 'Invalid refresh token' });
+            }
+
+            const tokens = await generateTokens(storedToken.userId, true);
+            
+            await prisma.refreshToken.update({
+                where: { id: storedToken.id },
+                data: { isRevoked: true }
+            });
+
+            res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
+                ...authConfig.cookie.admin.options,
+                maxAge: 15 * 60 * 1000
+            });
+
+            res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
+                ...authConfig.cookie.admin.options,
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+
+            return res.status(200).json({ message: 'Token refreshed' });
+        }
+    } catch (error) {
+        console.error('Auth error:', error);
+        return res.status(401).json({ message: 'Invalid token' });
+    }
+};
+
+// revoke all sessions
+export const revokeAllSessions = async (userId: string) => {
+    try {
+        await prisma.refreshToken.updateMany({
+            where: { userId },
+            data: { isRevoked: true }
+        });
+        
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { refreshTokens: true }
+        });
+
+        if (user) {
+            for (const refreshToken of user.refreshTokens) {
+                const decoded = jwt.decode(refreshToken.token) as AccessTokenPayload;
+                if (decoded?.exp) {
+                    blacklistToken(refreshToken.token, decoded.exp);
+                }
+            }
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error revoking sessions:', error);
+        throw error;
+    }
 };
