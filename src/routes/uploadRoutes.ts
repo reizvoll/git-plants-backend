@@ -1,4 +1,4 @@
-import { authToken, isAdmin } from '@/middlewares/authMiddleware';
+import { adminAuth } from '@/middlewares/authMiddleware';
 import { PrismaClient } from '@prisma/client';
 import express, { Response } from 'express';
 import multer from 'multer';
@@ -8,11 +8,8 @@ import { AuthRequest } from '../types/auth';
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Apply authentication middleware to all routes
-router.use(authToken);
-
-// Apply admin check middleware to all routes
-router.use(isAdmin);
+// Apply admin authentication middleware to all routes
+router.use(adminAuth);
 
 // set type for cloudinary upload result
 interface CloudinaryUploadResult {
@@ -150,7 +147,7 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
           name,
           condition,
           imageUrl: result.secure_url,
-          updatedById: req.superUser!.id
+          updatedById: req.user!.id
         }
       })
     ]);

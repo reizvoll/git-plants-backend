@@ -12,6 +12,29 @@ export const authConfig = {
   },
   jwt: {
     secret: process.env.JWT_SECRET!,
-    expiresIn: '1d' as SignOptions['expiresIn'],
+    accessTokenExpiresIn: '1h' as SignOptions['expiresIn'],
+    refreshTokenExpiresIn: '7d' as SignOptions['expiresIn'],
+  },
+  cookie: {
+    admin: {
+      accessTokenName: 'admin_access_token',
+      refreshTokenName: 'admin_refresh_token',
+      options: {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict' as const,
+        path: '/admin',
+      }
+    },
+    client: {
+      accessTokenName: 'client_access_token',
+      refreshTokenName: 'client_refresh_token',
+      options: {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict' as const,
+        path: '/',
+      }
+    }
   }
 }; 

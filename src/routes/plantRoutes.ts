@@ -1,12 +1,12 @@
 import prisma from '@/config/db';
-import { authToken } from '@/middlewares/authMiddleware';
+import { clientAuth } from '@/middlewares/authMiddleware';
 import { AuthRequest } from '@/types/auth';
 import express, { Response } from 'express';
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(authToken);
+router.use(clientAuth);
 
 // Get all user's plants
 router.get('/', async (req: AuthRequest, res: Response) => {

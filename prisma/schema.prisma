@@ -19,6 +19,7 @@ model User {
   plants           Plant[]
   seeds            Seed?
   sessions         Session[]
+  refreshTokens    RefreshToken[]
   superUser        SuperUser?
   userBadges       UserBadge[]
   userItems        UserItem[]
@@ -162,6 +163,18 @@ model UploadedImage {
   updatedAt DateTime @updatedAt
 
   @@index([type])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  isAdmin   Boolean  @default(false)
+
+  @@index([userId])
 }
 
 enum GrowthStage {
