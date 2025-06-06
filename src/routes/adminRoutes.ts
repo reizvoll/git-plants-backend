@@ -1,15 +1,12 @@
 import prisma from '@/config/db';
-import { authToken, isAdmin } from '@/middlewares/authMiddleware';
+import { adminAuth } from '@/middlewares/authMiddleware';
 import { AuthRequest } from '@/types/auth';
 import express, { Response } from 'express';
 
 const router = express.Router();
 
-// Apply authentication middleware to all routes
-router.use(authToken);
-
-// Apply admin check middleware to all routes
-router.use(isAdmin);
+// Apply admin authentication middleware to all routes
+router.use(adminAuth);
 
 // Get admin dashboard stats
 router.get('/stats', async (req: AuthRequest, res: Response) => {
@@ -92,7 +89,7 @@ router.post('/monthly-plants', async (req: AuthRequest, res: Response) => {
         imageUrl,
         month: parseInt(month),
         year: parseInt(year),
-        updatedById: req.superUser!.id
+        updatedById: req.user!.id
       }
     });
     
@@ -112,7 +109,7 @@ router.put('/monthly-plants/:id', async (req: AuthRequest, res: Response) => {
         title,
         description,
         imageUrl,
-        updatedById: req.superUser!.id
+        updatedById: req.user!.id
       }
     });
     
@@ -149,7 +146,7 @@ router.post('/items', async (req: AuthRequest, res: Response) => {
         category,
         imageUrl,
         price: parseInt(price),
-        updatedById: req.superUser!.id
+        updatedById: req.user!.id
       }
     });
     
@@ -170,7 +167,7 @@ router.put('/items/:id', async (req: AuthRequest, res: Response) => {
         category,
         imageUrl,
         price: parseInt(price),
-        updatedById: req.superUser!.id
+        updatedById: req.user!.id
       }
     });
     
@@ -204,7 +201,7 @@ router.post('/badges', async (req: AuthRequest, res: Response) => {
         name,
         condition,
         imageUrl,
-        updatedById: req.superUser!.id
+        updatedById: req.user!.id
       }
     });
     
@@ -224,7 +221,7 @@ router.put('/badges/:id', async (req: AuthRequest, res: Response) => {
         name,
         condition,
         imageUrl,
-        updatedById: req.superUser!.id
+        updatedById: req.user!.id
       }
     });
     
@@ -250,45 +247,20 @@ router.post('/users', async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.body;
     
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Check if user is already an admin
-    const existingSuperUser = await prisma.superUser.findUnique({
-      where: { userId }
-    });
-    
-    if (existingSuperUser) {
-      return res.status(409).json({ message: 'User is already an admin' });
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
     }
     
     const superUser = await prisma.superUser.create({
       data: {
         userId
-      }
+      },
+      include: { user: true }
     });
     
     res.status(201).json(superUser);
   } catch (error) {
-    res.status(500).json({ message: 'Error adding admin user' });
-  }
-});
-
-router.put('/users/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    const updatedSuperUser = await prisma.superUser.findUnique({
-      where: { id: req.params.id }
-    });
-    
-    res.json(updatedSuperUser);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating admin user' });
+    res.status(500).json({ message: 'Error creating admin user' });
   }
 });
 
@@ -298,9 +270,9 @@ router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
       where: { id: req.params.id }
     });
     
-    res.json({ message: 'Admin user removed successfully' });
+    res.status(204).send();
   } catch (error) {
-    res.status(500).json({ message: 'Error removing admin user' });
+    res.status(500).json({ message: 'Error deleting admin user' });
   }
 });
 
