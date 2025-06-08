@@ -55,20 +55,40 @@ router.get('/callback/github', async (req, res) => {
       create: userData,
     });
 
+    // Check if user is admin
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: user.id }
+    });
+
     // generate tokens
-    const tokens = await generateTokens(user.id, false);
+    const tokens = await generateTokens(user.id, !!superUser);
 
-    // set cookies
-    res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
-      ...authConfig.cookie.client.options,
-      maxAge: 15 * 60 * 1000 // 15 minutes
-    });
+    // set cookies based on user type
+    if (superUser) {
+      // Set admin cookies
+      res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
+        ...authConfig.cookie.admin.options,
+        maxAge: 15 * 60 * 1000 // 15 minutes
+      });
 
-    res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
-      ...authConfig.cookie.client.options,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-    
+      res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
+        ...authConfig.cookie.admin.options,
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+    } else {
+
+      // Set client cookies
+      res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
+        ...authConfig.cookie.client.options,
+        maxAge: 15 * 60 * 1000 // 15 minutes
+      });
+
+      res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
+        ...authConfig.cookie.client.options,
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+    }
+
     // redirect to frontend
     res.redirect(`${process.env.CLIENT_URL}/auth/callback`);
   } catch (error) {
@@ -77,7 +97,7 @@ router.get('/callback/github', async (req, res) => {
   }
 });
 
-// check session
+// check session for client
 router.get('/session', clientAuth, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user?.id) {

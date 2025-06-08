@@ -1,5 +1,5 @@
 import prisma from '@/config/db';
-import { adminAuth } from '@/middlewares/authMiddleware';
+import { adminAuth, logout } from '@/middlewares/authMiddleware';
 import { AuthRequest } from '@/types/auth';
 import express, { Response } from 'express';
 
@@ -7,6 +7,42 @@ const router = express.Router();
 
 // Apply admin authentication middleware to all routes
 router.use(adminAuth);
+
+// admin logout
+router.post('/signout', logout);
+
+// Check admin session
+router.get('/session', async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const [user, superUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: {
+          username: true,
+          image: true,
+        },
+      }),
+      prisma.superUser.findUnique({
+        where: { userId: req.user.id },
+      }),
+    ]);
+
+    if (!superUser) {
+      return res.status(403).json({ message: 'Not authorized as admin' });
+    }
+
+    res.json({
+      user,
+      isAdmin: true
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching admin session' });
+  }
+});
 
 // Get admin dashboard stats
 router.get('/stats', async (req: AuthRequest, res: Response) => {
