@@ -19,21 +19,16 @@ export interface AccessTokenPayload extends JwtPayload {
     id: string;
     username: string;
     image?: string;
+    isAdmin: boolean;
 }
 
-export interface RefreshTokenPayload {
-    token: string;
-    userId: string;
-    expiresAt: Date;
-}
-
-export interface TokenResponse {
+export type TokenResponse = {
     accessToken: string;
     refreshToken: string;
     expiresAt: Date;
 }
 
-export interface UserPayload {
+export type UserPayload = {
     id: string;
     username: string;
     image?: string;
