@@ -23,7 +23,7 @@ export const authConfig = {
         httpOnly: true,
         secure: true,
         sameSite: 'strict' as const,
-        path: '/admin',
+        path: '/',
       }
     },
     client: {
