@@ -96,7 +96,7 @@ export const logout = async (req: Request, res: Response) => {
 // client auth middleware
 export const clientAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
+        const token = req.cookies[authConfig.cookie.client.accessTokenName];
         if (!token) return res.status(401).json({ message: 'No token provided' });
         if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
 
@@ -150,7 +150,7 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
 // admin auth middleware
 export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
+        const token = req.cookies[authConfig.cookie.admin.accessTokenName];
         if (!token) return res.status(401).json({ message: 'No token provided' });
         if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
 
