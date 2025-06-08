@@ -96,21 +96,25 @@ export const logout = async (req: Request, res: Response) => {
 // client auth middleware
 export const clientAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const token = req.cookies[authConfig.cookie.client.accessTokenName];
+        // Check both client and admin tokens
+        const token = req.cookies[authConfig.cookie.client.accessTokenName] || 
+                     req.cookies[authConfig.cookie.admin.accessTokenName];
+        
         if (!token) return res.status(401).json({ message: 'No token provided' });
         if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
 
         try {
             const decoded = jwt.verify(token, authConfig.jwt.secret) as AccessTokenPayload;
-            if (decoded.isAdmin) {
-                return res.status(403).json({ message: 'Admin token not allowed for client routes' });
-            }
             req.user = { id: decoded.id, username: decoded.username, image: decoded.image };
+            req.isAdmin = decoded.isAdmin;
             next();
         } catch (error) {
             if (!(error instanceof jwt.TokenExpiredError)) throw error;
 
-            const refreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
+            const isAdmin = req.cookies[authConfig.cookie.admin.accessTokenName] !== undefined;
+            const cookieConfig = isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
+            const refreshToken = req.cookies[cookieConfig.refreshTokenName];
+
             if (!refreshToken) return res.status(401).json({ message: 'Token expired' });
 
             const storedToken = await prisma.refreshToken.findUnique({
@@ -118,24 +122,23 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
                 include: { user: true }
             });
 
-            if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked || storedToken.isAdmin) {
+            if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked) {
                 return res.status(401).json({ message: 'Invalid refresh token' });
             }
 
-            const tokens = await generateTokens(storedToken.userId, false);
-            
+            const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
             await prisma.refreshToken.update({
                 where: { id: storedToken.id },
                 data: { isRevoked: true }
             });
 
-            res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
-                ...authConfig.cookie.client.options,
+            res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
+                ...cookieConfig.options,
                 maxAge: 15 * 60 * 1000
             });
 
-            res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
-                ...authConfig.cookie.client.options,
+            res.cookie(cookieConfig.refreshTokenName, tokens.refreshToken, {
+                ...cookieConfig.options,
                 maxAge: 7 * 24 * 60 * 60 * 1000
             });
 
