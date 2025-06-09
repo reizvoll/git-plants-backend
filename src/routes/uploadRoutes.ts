@@ -133,6 +133,18 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(badges)', 'images/badges', filename);
     
+    // Get SuperUser record
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        success: false, 
+        message: '관리자 권한이 없습니다.' 
+      });
+    }
+    
     // Create both UploadedImage and Badge records
     const [uploadedImage, badge] = await prisma.$transaction([
       prisma.uploadedImage.create({
@@ -147,7 +159,7 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
           name,
           condition,
           imageUrl: result.secure_url,
-          updatedById: req.user!.id
+          updatedById: superUser.id
         }
       })
     ]);
@@ -160,8 +172,14 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
         badge 
       } 
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('뱃지 이미지 업로드 에러:', error);
+    if (error.code === 'P2003') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '관리자 계정이 존재하지 않습니다. 다시 로그인해주세요.' 
+      });
+    }
     res.status(500).json({ success: false, message: '이미지 업로드에 실패했습니다.' });
   }
 });
