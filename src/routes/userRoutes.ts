@@ -6,16 +6,14 @@ import { clientAuth } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
-// Apply authentication middleware to all routes
-router.use(clientAuth);
-
-// Get user profile with all related information
-router.get('/profile', async (req: AuthRequest, res) => {
+// Get user profile with all related information - accessible to both regular users and superusers
+router.get('/profile', clientAuth, async (req: AuthRequest, res) => {
   try {
     const userId = req.user!.id;
+    const isAdmin = req.isAdmin;
 
     // Get all user information in parallel
-    const [userInfo, seedCount, userBadges, equippedItems, plants] = await Promise.all([
+    const [userInfo, userSeed, userBadges, equippedItems, plants] = await Promise.all([
       // Basic user info
       prisma.user.findUnique({
         where: { id: userId },
@@ -24,9 +22,10 @@ router.get('/profile', async (req: AuthRequest, res) => {
           image: true,
         },
       }),
-      // Total seed count
-      prisma.seed.count({
-        where: { userId }
+      // User's seed count
+      prisma.seed.findUnique({
+        where: { userId },
+        select: { count: true }
       }),
       // User's badges
       prisma.userBadge.findMany({
@@ -60,8 +59,11 @@ router.get('/profile', async (req: AuthRequest, res) => {
     const equippedPot = equippedItems.find(item => item.item.category === 'POT');
 
     res.json({
-      user: userInfo,
-      seedCount,  // Return seed counts
+      user: {
+        ...userInfo,
+        isAdmin
+      },
+      seedCount: userSeed?.count || 0,
       badges: userBadges,
       equipped: {
         background: equippedBackground?.item || null,
@@ -75,10 +77,10 @@ router.get('/profile', async (req: AuthRequest, res) => {
   }
 });
 
-// User routes
-router.post('/', createUser);
-router.get('/:id', getUser);
-router.put('/:id', updateUser);
-router.delete('/:id', deleteUser);
+// User routes - these require authentication
+router.post('/', clientAuth, createUser);
+router.get('/:id', clientAuth, getUser);
+router.put('/:id', clientAuth, updateUser);
+router.delete('/:id', clientAuth, deleteUser);
 
 export default router; 
