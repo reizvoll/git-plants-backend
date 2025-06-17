@@ -18,19 +18,10 @@ model User {
   githubActivities GitHubActivity[]
   plants           Plant[]
   seeds            Seed?
-  sessions         Session[]
   refreshTokens    RefreshToken[]
   superUser        SuperUser?
   userBadges       UserBadge[]
   userItems        UserItem[]
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model GitHubActivity {
@@ -173,6 +164,7 @@ model RefreshToken {
   expiresAt DateTime
   isRevoked Boolean  @default(false)
   isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
