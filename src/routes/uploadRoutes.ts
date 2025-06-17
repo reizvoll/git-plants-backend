@@ -42,7 +42,7 @@ const uploadToCloudinary = async (file: Express.Multer.File, preset: string, fol
 router.post('/crops', upload.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
+      return res.status(400).json({ message: 'Image file is required' });
     }
 
     const filename = req.body.filename || req.file.originalname;
@@ -57,62 +57,142 @@ router.post('/crops', upload.single('image'), async (req: AuthRequest, res: Resp
       }
     });
 
-    res.json({ success: true, data: { ...result, dbRecord: uploadedImage } });
+    res.json({ data: { ...result, dbRecord: uploadedImage } });
   } catch (error) {
     console.error('작물 이미지 업로드 에러:', error);
-    res.status(500).json({ success: false, message: '이미지 업로드에 실패했습니다.' });
+    res.status(500).json({ message: '이미지 업로드에 실패했습니다.' });
   }
 });
 
 // upload background image
-router.post('/backgrounds', upload.single('image'), async (req: AuthRequest, res: Response) => {
+router.post('/backgrounds', upload.fields([
+  { name: 'mainImage', maxCount: 1 },
+  { name: 'iconImage', maxCount: 1 }
+]), async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    
+    if (!files.mainImage?.[0] || !files.iconImage?.[0]) {
+      return res.status(400).json({ message: 'Main image and icon image are required' });
     }
 
-    const filename = req.body.filename || req.file.originalname;
-    const result = await uploadToCloudinary(req.file, 'git-plants(backgrounds)', 'items/backgrounds', filename);
+    const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
+    const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
+
+    // Upload main image
+    const mainResult = await uploadToCloudinary(
+      files.mainImage[0], 
+      'git-plants(backgrounds)', 
+      'items/backgrounds', 
+      mainFilename
+    );
+
+    // Upload icon image
+    const iconResult = await uploadToCloudinary(
+      files.iconImage[0],
+      'git-plants(backgrounds)',
+      'items/backgrounds',
+      iconFilename
+    );
     
     // save image info to DB
-    const uploadedImage = await prisma.uploadedImage.create({
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: '관리자 권한이 없습니다.' 
+      });
+    }
+
+    const gardenItem = await prisma.gardenItem.create({
       data: {
-        type: 'BACKGROUND',
-        name: filename,
-        url: result.secure_url
+        name: mainFilename,
+        category: 'background',
+        imageUrl: mainResult.secure_url,
+        iconUrl: iconResult.secure_url,
+        price: parseInt(req.body.price) || 0,
+        updatedById: superUser.id
       }
     });
 
-    res.json({ success: true, data: { ...result, dbRecord: uploadedImage } });
+    res.json({ 
+      data: { 
+        mainImage: mainResult,
+        iconImage: iconResult,
+        gardenItem 
+      } 
+    });
   } catch (error) {
-    console.error('배경화면 이미지 업로드 에러:', error);
-    res.status(500).json({ success: false, message: '이미지 업로드에 실패했습니다.' });
+    console.error('Background image upload error:', error);
+    res.status(500).json({ message: 'Image upload failed' });
   }
 });
 
 // upload pot image
-router.post('/pots', upload.single('image'), async (req: AuthRequest, res: Response) => {
+router.post('/pots', upload.fields([
+  { name: 'mainImage', maxCount: 1 },
+  { name: 'iconImage', maxCount: 1 }
+]), async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    
+    if (!files.mainImage?.[0] || !files.iconImage?.[0]) {
+      return res.status(400).json({ message: 'Main image and icon image are required' });
     }
 
-    const filename = req.body.filename || req.file.originalname;
-    const result = await uploadToCloudinary(req.file, 'git-plants(pots)', 'items/pots', filename);
+    const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
+    const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
+
+    // Upload main image
+    const mainResult = await uploadToCloudinary(
+      files.mainImage[0], 
+      'git-plants(pots)', 
+      'items/pots', 
+      mainFilename
+    );
+
+    // Upload icon image
+    const iconResult = await uploadToCloudinary(
+      files.iconImage[0],
+      'git-plants(pots)',
+      'items/pots',
+      iconFilename
+    );
     
     // save image info to DB
-    const uploadedImage = await prisma.uploadedImage.create({
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+
+    const gardenItem = await prisma.gardenItem.create({
       data: {
-        type: 'POT',
-        name: filename,
-        url: result.secure_url
+        name: mainFilename,
+        category: 'pot',
+        imageUrl: mainResult.secure_url,
+        iconUrl: iconResult.secure_url,
+        price: parseInt(req.body.price) || 0,
+        updatedById: superUser.id
       }
     });
 
-    res.json({ success: true, data: { ...result, dbRecord: uploadedImage } });
+    res.json({ 
+      data: { 
+        mainImage: mainResult,
+        iconImage: iconResult,
+        gardenItem 
+      } 
+    });
   } catch (error) {
-    console.error('화분 이미지 업로드 에러:', error);
-    res.status(500).json({ success: false, message: '이미지 업로드에 실패했습니다.' });
+    console.error('Pot image upload error:', error);
+    res.status(500).json({ message: 'Image upload failed' });
   }
 });
 
@@ -120,14 +200,14 @@ router.post('/pots', upload.single('image'), async (req: AuthRequest, res: Respo
 router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: '이미지 파일이 필요합니다.' });
+      return res.status(400).json({ message: 'Image file is required' });
     }
 
     const { name, condition } = req.body;
     
     // Validate required fields
     if (!name || !condition) {
-      return res.status(400).json({ message: '뱃지 이름과 획득 조건이 필요합니다.' });
+      return res.status(400).json({ message: 'Badge name and condition are required' });
     }
 
     const filename = req.body.filename || req.file.originalname;
@@ -139,9 +219,8 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
     });
 
     if (!superUser) {
-      return res.status(403).json({ 
-        success: false, 
-        message: '관리자 권한이 없습니다.' 
+      return res.status(403).json({
+        message: 'Not authorized as admin' 
       });
     }
     
@@ -165,7 +244,6 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
     ]);
 
     res.json({ 
-      success: true, 
       data: { 
         ...result, 
         uploadedImage,
@@ -173,14 +251,61 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
       } 
     });
   } catch (error: any) {
-    console.error('뱃지 이미지 업로드 에러:', error);
+    console.error('Badge image upload error:', error);
     if (error.code === 'P2003') {
       return res.status(400).json({ 
-        success: false, 
-        message: '관리자 계정이 존재하지 않습니다. 다시 로그인해주세요.' 
+        message: 'Admin account does not exist. Please log in again.' 
       });
     }
-    res.status(500).json({ success: false, message: '이미지 업로드에 실패했습니다.' });
+    res.status(500).json({ message: 'Image upload failed' });
+  }
+});
+
+// upload icon image for garden item
+router.post('/icons/:itemId', upload.single('image'), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Image file is required' });
+    }
+
+    const itemId = parseInt(req.params.itemId);
+    const filename = req.body.filename || req.file.originalname;
+
+    // Get the garden item to determine its category
+    const gardenItem = await prisma.gardenItem.findUnique({
+      where: { id: itemId }
+    });
+
+    if (!gardenItem) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    // Upload icon image to the same folder as the main image
+    const result = await uploadToCloudinary(
+      req.file,
+      `git-plants(${gardenItem.category}s)`,
+      `items/${gardenItem.category}s`,
+      `${filename}_icon`
+    );
+
+    // Update garden item with icon URL
+    const updatedItem = await prisma.gardenItem.update({
+      where: { id: itemId },
+      data: {
+        iconUrl: result.secure_url,
+        updatedById: req.user!.id
+      }
+    });
+
+    res.json({ 
+      data: { 
+        iconImage: result,
+        gardenItem: updatedItem 
+      } 
+    });
+  } catch (error) {
+    console.error('Icon image upload error:', error);
+    res.status(500).json({ message: 'Image upload failed' });
   }
 });
 

@@ -169,26 +169,44 @@ router.get('/items', async (req: AuthRequest, res: Response) => {
 
 router.post('/items', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, category, imageUrl, price } = req.body;
-    
-    // Basic validation
-    if (!name || !category || !imageUrl || price === undefined) {
-      return res.status(400).json({ message: 'All fields are required' });
+    const { name, category, imageUrl, iconUrl, price } = req.body;
+
+    if (!name || !category || !imageUrl || !iconUrl || price === undefined || price === null) {
+      return res.status(400).json({ 
+        message: 'All fields are required' 
+      });
     }
-    
-    const item = await prisma.gardenItem.create({
+
+    // SuperUser 찾기
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+
+    const gardenItem = await prisma.gardenItem.create({
       data: {
         name,
         category,
         imageUrl,
+        iconUrl,
         price: parseInt(price),
-        updatedById: req.user!.id
+        updatedById: superUser.id
       }
     });
-    
-    res.status(201).json(item);
+
+    res.json({ 
+      data: gardenItem 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error creating item' });
+    console.error('Item creation error:', error);
+    res.status(500).json({ 
+      message: 'Item creation failed' 
+    });
   }
 });
 
