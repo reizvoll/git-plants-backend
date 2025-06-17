@@ -26,6 +26,25 @@ setInterval(() => {
 export const blacklistToken = (token: string, expiresAt: number) => blacklist.set(token, expiresAt);
 export const isTokenBlacklisted = (token: string): boolean => blacklist.has(token);
 
+// Cleanup expired refresh tokens
+const cleanupExpiredTokens = async () => {
+    try {
+        await prisma.refreshToken.deleteMany({
+            where: {
+                OR: [
+                    { expiresAt: { lt: new Date() } },
+                    { isRevoked: true }
+                ]
+            }
+        });
+    } catch (error) {
+        console.error('Error cleaning up expired tokens:', error);
+    }
+};
+
+// Run cleanup every hour
+setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
+
 // generate tokens
 export const generateTokens = async (userId: string, isAdmin: boolean = false): Promise<TokenResponse> => {
     const user = await prisma.user.findUnique({
@@ -33,6 +52,12 @@ export const generateTokens = async (userId: string, isAdmin: boolean = false): 
         select: { id: true, username: true, image: true }
     });
     if (!user) throw new Error('User not found');
+
+    // Revoke all existing refresh tokens for this user
+    await prisma.refreshToken.updateMany({
+        where: { userId },
+        data: { isRevoked: true }
+    });
 
     const accessToken = jwt.sign(
         { 
@@ -205,8 +230,8 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
     }
 };
 
-// revoke all sessions
-export const revokeAllSessions = async (userId: string) => {
+// revoke all refresh tokens
+export const revokeAllRefreshTokens = async (userId: string) => {
     try {
         await prisma.refreshToken.updateMany({
             where: { userId },
@@ -229,7 +254,7 @@ export const revokeAllSessions = async (userId: string) => {
 
         return true;
     } catch (error) {
-        console.error('Error revoking sessions:', error);
+        console.error('Error revoking refresh tokens:', error);
         throw error;
     }
 };
