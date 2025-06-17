@@ -75,6 +75,7 @@ model GardenItem {
   name        String
   category    String
   imageUrl    String
+  iconUrl String
   price       Int
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
