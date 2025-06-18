@@ -74,8 +74,9 @@ model Seed {
 model GardenItem {
   name        String
   category    String
+  mode        String?
   imageUrl    String
-  iconUrl String
+  iconUrl     String
   price       Int
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
