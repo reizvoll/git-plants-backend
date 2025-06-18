@@ -44,6 +44,7 @@ model Plant {
   id                   String      @id @default(cuid())
   userId               String
   name                 String
+  imageUrl             String
   stage                GrowthStage @default(SEED)
   currentContributions Int         @default(0)
   createdAt            DateTime    @default(now())
@@ -74,8 +75,9 @@ model Seed {
 model GardenItem {
   name        String
   category    String
+  mode        String?
   imageUrl    String
-  iconUrl String
+  iconUrl     String
   price       Int
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -144,17 +146,6 @@ model SuperUser {
   itemEdits  GardenItem[]   @relation("GardenItemUpdatedBy")
   plantEdits MonthlyPlant[] @relation("MonthlyPlantUpdatedBy")
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model UploadedImage {
-  id        String   @id @default(cuid())
-  type      String
-  name      String
-  url       String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([type])
 }
 
 model RefreshToken {

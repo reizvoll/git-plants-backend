@@ -56,6 +56,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       data: {
         name,
         userId: req.user!.id,
+        imageUrl: '',
+        stage: 'SEED',
+        currentContributions: 0
       }
     });
     

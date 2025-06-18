@@ -169,11 +169,18 @@ router.get('/items', async (req: AuthRequest, res: Response) => {
 
 router.post('/items', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, category, imageUrl, iconUrl, price } = req.body;
+    const { name, category, imageUrl, iconUrl, price, mode } = req.body;
 
     if (!name || !category || !imageUrl || !iconUrl || price === undefined || price === null) {
       return res.status(400).json({ 
         message: 'All fields are required' 
+      });
+    }
+
+    // Check if mode is required for background category
+    if (category === 'background' && !mode) {
+      return res.status(400).json({
+        message: 'Mode is required for background category'
       });
     }
 
@@ -195,12 +202,13 @@ router.post('/items', async (req: AuthRequest, res: Response) => {
         imageUrl,
         iconUrl,
         price: parseInt(price),
+        mode: mode || 'default',
         updatedById: superUser.id
       }
     });
 
     res.json({ 
-      data: gardenItem 
+      data: category === 'background' ? gardenItem : { ...gardenItem, mode: undefined }
     });
   } catch (error) {
     console.error('Item creation error:', error);
@@ -212,7 +220,14 @@ router.post('/items', async (req: AuthRequest, res: Response) => {
 
 router.put('/items/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, category, imageUrl, price } = req.body;
+    const { name, category, imageUrl, price, mode } = req.body;
+    
+    // Check if mode is required for background category
+    if (category === 'background' && !mode) {
+      return res.status(400).json({
+        message: 'Mode is required for background category'
+      });
+    }
     
     const updatedItem = await prisma.gardenItem.update({
       where: { id: parseInt(req.params.id) },
@@ -221,11 +236,12 @@ router.put('/items/:id', async (req: AuthRequest, res: Response) => {
         category,
         imageUrl,
         price: parseInt(price),
+        mode: mode || 'default',
         updatedById: req.user!.id
       }
     });
     
-    res.json(updatedItem);
+    res.json(category === 'background' ? updatedItem : { ...updatedItem, mode: undefined });
   } catch (error) {
     res.status(500).json({ message: 'Error updating item' });
   }
