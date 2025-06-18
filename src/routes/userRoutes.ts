@@ -55,7 +55,10 @@ router.get('/profile', clientAuth, async (req: AuthRequest, res) => {
     }
 
     // Separate equipped items by category
-    const equippedBackground = equippedItems.find(item => item.item.category === 'BACKGROUND');
+    const equippedBackground = equippedItems.find(item => 
+      item.item.category === 'BACKGROUND' &&
+      (item.item.mode === 'GARDEN' || item.item.mode === 'MINI')  // 배경화면은 GARDEN 또는 MINI 모드
+    );
     const equippedPot = equippedItems.find(item => item.item.category === 'POT');
 
     res.json({
