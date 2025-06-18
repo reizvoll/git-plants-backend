@@ -48,16 +48,18 @@ router.post('/crops', upload.single('image'), async (req: AuthRequest, res: Resp
     const filename = req.body.filename || req.file.originalname;
     const result = await uploadToCloudinary(req.file, 'git-plants(crops)', 'images/crops', filename);
     
-    // save image info to DB
-    const uploadedImage = await prisma.uploadedImage.create({
+    // Create plant directly with image URL
+    const plant = await prisma.plant.create({
       data: {
-        type: 'CROP',
         name: filename,
-        url: result.secure_url
+        imageUrl: result.secure_url,
+        userId: req.user!.id,
+        stage: 'SEED',
+        currentContributions: 0
       }
     });
 
-    res.json({ data: { ...result, dbRecord: uploadedImage } });
+    res.json({ data: { ...result, plant } });
   } catch (error) {
     console.error('작물 이미지 업로드 에러:', error);
     res.status(500).json({ message: '이미지 업로드에 실패했습니다.' });
@@ -78,6 +80,12 @@ router.post('/backgrounds', upload.fields([
 
     const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
     const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
+    const mode = req.body.mode || 'DEFAULT';
+
+    // Validate mode
+    if (mode !== 'DEFAULT' && mode !== 'GARDEN' && mode !== 'MINI') {
+      return res.status(400).json({ message: 'Mode must be either DEFAULT, GARDEN or MINI' });
+    }
 
     // Upload main image
     const mainResult = await uploadToCloudinary(
@@ -113,6 +121,7 @@ router.post('/backgrounds', upload.fields([
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
         price: parseInt(req.body.price) || 0,
+        mode: mode,
         updatedById: superUser.id
       }
     });
@@ -224,29 +233,19 @@ router.post('/badges', upload.single('image'), async (req: AuthRequest, res: Res
       });
     }
     
-    // Create both UploadedImage and Badge records
-    const [uploadedImage, badge] = await prisma.$transaction([
-      prisma.uploadedImage.create({
-        data: {
-          type: 'BADGE',
-          name: filename,
-          url: result.secure_url
-        }
-      }),
-      prisma.badge.create({
-        data: {
-          name,
-          condition,
-          imageUrl: result.secure_url,
-          updatedById: superUser.id
-        }
-      })
-    ]);
+    // Create badge directly with image URL
+    const badge = await prisma.badge.create({
+      data: {
+        name,
+        condition,
+        imageUrl: result.secure_url,
+        updatedById: superUser.id
+      }
+    });
 
     res.json({ 
       data: { 
         ...result, 
-        uploadedImage,
         badge 
       } 
     });
