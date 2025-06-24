@@ -21,9 +21,10 @@ export const authConfig = {
       refreshTokenName: 'admin_refresh_token',
       options: {
         httpOnly: true,
-        secure: true,
-        sameSite: 'strict' as const,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as const,
         path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       }
     },
     client: {
@@ -31,9 +32,10 @@ export const authConfig = {
       refreshTokenName: 'client_refresh_token',
       options: {
         httpOnly: true,
-        secure: true,
-        sameSite: 'strict' as const,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as const,
         path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       }
     }
   }

@@ -152,19 +152,15 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
             }
 
             const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
-            await prisma.refreshToken.update({
-                where: { id: storedToken.id },
-                data: { isRevoked: true }
-            });
-
+            
             res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
                 ...cookieConfig.options,
-                maxAge: 15 * 60 * 1000
+                maxAge: 60 * 60 * 1000 // 1 hour
             });
 
             res.cookie(cookieConfig.refreshTokenName, tokens.refreshToken, {
                 ...cookieConfig.options,
-                maxAge: 7 * 24 * 60 * 60 * 1000
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
 
             return res.status(200).json({ message: 'Token refreshed' });
@@ -207,19 +203,14 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
 
             const tokens = await generateTokens(storedToken.userId, true);
             
-            await prisma.refreshToken.update({
-                where: { id: storedToken.id },
-                data: { isRevoked: true }
-            });
-
             res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
                 ...authConfig.cookie.admin.options,
-                maxAge: 15 * 60 * 1000
+                maxAge: 60 * 60 * 1000 // 1 hour
             });
 
             res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
                 ...authConfig.cookie.admin.options,
-                maxAge: 7 * 24 * 60 * 60 * 1000
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
 
             return res.status(200).json({ message: 'Token refreshed' });
