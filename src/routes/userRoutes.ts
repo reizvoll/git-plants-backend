@@ -54,12 +54,15 @@ router.get('/profile', clientAuth, async (req: AuthRequest, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Separate equipped items by category
-    const equippedBackground = equippedItems.find(item => 
-      item.item.category === 'BACKGROUND' &&
+    // Separate equipped items by category - return all equipped items
+    const equippedBackgrounds = equippedItems.filter(item => 
+      item.item.category === 'background' &&
       (item.item.mode === 'GARDEN' || item.item.mode === 'MINI')  // 배경화면은 GARDEN 또는 MINI 모드
-    );
-    const equippedPot = equippedItems.find(item => item.item.category === 'POT');
+    ).map(item => item.item);
+    
+    const equippedPots = equippedItems.filter(item => 
+      item.item.category === 'pot'
+    ).map(item => item.item);
 
     res.json({
       user: {
@@ -69,8 +72,8 @@ router.get('/profile', clientAuth, async (req: AuthRequest, res) => {
       seedCount: userSeed?.count || 0,
       badges: userBadges,
       equipped: {
-        background: equippedBackground?.item || null,
-        pot: equippedPot?.item || null
+        backgrounds: equippedBackgrounds,
+        pots: equippedPots
       },
       plants
     });

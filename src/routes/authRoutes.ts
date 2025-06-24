@@ -65,10 +65,10 @@ router.get('/callback/github', async (req, res) => {
 
     // set cookies based on user type
     if (superUser) {
-      // Set admin cookies
+      // Set admin cookies with improved settings
       res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
         ...authConfig.cookie.admin.options,
-        maxAge: 15 * 60 * 1000 // 15 minutes
+        maxAge: 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
       });
 
       res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
@@ -76,11 +76,10 @@ router.get('/callback/github', async (req, res) => {
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
     } else {
-
-      // Set client cookies
+      // Set client cookies with improved settings
       res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
         ...authConfig.cookie.client.options,
-        maxAge: 15 * 60 * 1000 // 15 minutes
+        maxAge: 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
       });
 
       res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
@@ -128,5 +127,52 @@ router.get('/session', clientAuth, async (req: AuthRequest, res: Response) => {
 
 // logout
 router.post('/signout', clientAuth, logout);
+
+// refresh token endpoint
+router.post('/refresh', async (req, res) => {
+  try {
+    const isAdmin = req.cookies[authConfig.cookie.admin.refreshTokenName] !== undefined;
+    const cookieConfig = isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
+    const refreshToken = req.cookies[cookieConfig.refreshTokenName];
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'No refresh token provided' });
+    }
+
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: { user: true }
+    });
+
+    if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
+
+    res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
+      ...cookieConfig.options,
+      maxAge: 60 * 60 * 1000 // 1 hour
+    });
+
+    res.cookie(cookieConfig.refreshTokenName, tokens.refreshToken, {
+      ...cookieConfig.options,
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    return res.status(200).json({ 
+      message: 'Token refreshed successfully',
+      user: {
+        id: storedToken.user.id,
+        username: storedToken.user.username,
+        image: storedToken.user.image,
+      },
+      isAdmin: storedToken.isAdmin
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return res.status(500).json({ message: 'Error refreshing token' });
+  }
+});
 
 export default router; 
