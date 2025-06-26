@@ -1,7 +1,6 @@
-import prisma from '@/config/db';
+import { addGrowthLog, createPlant, deletePlant, getPlantById, getPlants, updatePlant } from '@/controllers/item/plantController';
 import { clientAuth } from '@/middlewares/authMiddleware';
-import { AuthRequest } from '@/types/auth';
-import express, { Response } from 'express';
+import express from 'express';
 
 const router = express.Router();
 
@@ -9,168 +8,22 @@ const router = express.Router();
 router.use(clientAuth);
 
 // Get all user's plants
-router.get('/', async (req: AuthRequest, res: Response) => {
-  try {
-    const plants = await prisma.plant.findMany({
-      where: { userId: req.user!.id },
-      include: { growthLogs: true },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(plants);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching plants' });
-  }
-});
+router.get('/', getPlants);
 
 // Get plant by ID
-router.get('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    const plant = await prisma.plant.findUnique({
-      where: {
-        id: req.params.id,
-        userId: req.user!.id
-      },
-      include: { growthLogs: true }
-    });
-    
-    if (!plant) {
-      return res.status(404).json({ message: 'Plant not found' });
-    }
-    
-    res.json(plant);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching plant' });
-  }
-});
+router.get('/:id', getPlantById);
 
 // Create a new plant
-router.post('/', async (req: AuthRequest, res: Response) => {
-  try {
-    const { name } = req.body;
-    
-    if (!name) {
-      return res.status(400).json({ message: 'Plant name is required' });
-    }
-    
-    const plant = await prisma.plant.create({
-      data: {
-        name,
-        userId: req.user!.id,
-        imageUrl: '',
-        stage: 'SEED',
-        currentContributions: 0
-      }
-    });
-    
-    res.status(201).json(plant);
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating plant' });
-  }
-});
+router.post('/', createPlant);
 
 // Update plant
-router.put('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    const { name } = req.body;
-    
-    // Check if plant exists and belongs to user
-    const existingPlant = await prisma.plant.findUnique({
-      where: {
-        id: req.params.id,
-        userId: req.user!.id
-      }
-    });
-    
-    if (!existingPlant) {
-      return res.status(404).json({ message: 'Plant not found' });
-    }
-    
-    const updatedPlant = await prisma.plant.update({
-      where: { id: req.params.id },
-      data: { name }
-    });
-    
-    res.json(updatedPlant);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating plant' });
-  }
-});
+router.put('/:id', updatePlant);
 
 // Delete plant
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    // Check if plant exists and belongs to user
-    const plant = await prisma.plant.findUnique({
-      where: {
-        id: req.params.id,
-        userId: req.user!.id
-      }
-    });
-    
-    if (!plant) {
-      return res.status(404).json({ message: 'Plant not found' });
-    }
-    
-    await prisma.plant.delete({
-      where: { id: req.params.id }
-    });
-    
-    res.json({ message: 'Plant deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting plant' });
-  }
-});
+router.delete('/:id', deletePlant);
 
 // Growth Logs
 // Add growth log to a plant
-router.post('/:plantId/logs', async (req: AuthRequest, res: Response) => {
-  try {
-    const { log, count } = req.body;
-    const { plantId } = req.params;
-    
-    // Check if plant exists and belongs to user
-    const plant = await prisma.plant.findUnique({
-      where: {
-        id: plantId,
-        userId: req.user!.id
-      }
-    });
-    
-    if (!plant) {
-      return res.status(404).json({ message: 'Plant not found' });
-    }
-    
-    const growthLog = await prisma.growthLog.create({
-      data: {
-        plantId,
-        log,
-        count
-      }
-    });
-    
-    // Update plant's currentContributions
-    await prisma.plant.update({
-      where: { id: plantId },
-      data: { 
-        currentContributions: plant.currentContributions + count,
-        // Update stage based on new contribution count if needed
-        stage: determineGrowthStage(plant.currentContributions + count)
-      }
-    });
-    
-    res.status(201).json(growthLog);
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating growth log' });
-  }
-});
-
-// Helper function to determine growth stage
-function determineGrowthStage(contributions: number): 'SEED' | 'SPROUT' | 'GROWING' | 'MATURE' | 'HARVEST' {
-  if (contributions >= 70) return 'HARVEST';
-  if (contributions >= 50) return 'MATURE';
-  if (contributions >= 30) return 'GROWING';
-  if (contributions >= 10) return 'SPROUT';
-  return 'SEED';
-}
+router.post('/:plantId/logs', addGrowthLog);
 
 export default router; 
