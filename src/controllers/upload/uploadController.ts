@@ -1,23 +1,18 @@
+import cloudinary from '@/config/cloudinary';
+import { AuthRequest } from '@/types/auth';
 import { PrismaClient } from '@prisma/client';
+import { UploadApiResponse } from 'cloudinary';
 import { Response } from 'express';
 import multer from 'multer';
-import cloudinary from '../config/cloudinary';
-import { AuthRequest } from '../types/auth';
 
 const prisma = new PrismaClient();
-
-// set type for cloudinary upload result
-interface CloudinaryUploadResult {
-  secure_url: string;
-  [key: string]: any;
-}
 
 // set multer storage
 const storage = multer.memoryStorage();
 export const upload = multer({ storage: storage });
 
 // common upload function
-const uploadToCloudinary = async (file: Express.Multer.File, preset: string, folder: string, filename?: string): Promise<CloudinaryUploadResult> => {
+const uploadToCloudinary = async (file: Express.Multer.File, preset: string, folder: string, filename?: string): Promise<UploadApiResponse> => {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
       {
@@ -27,7 +22,7 @@ const uploadToCloudinary = async (file: Express.Multer.File, preset: string, fol
       },
       (error, result) => {
         if (error) reject(error);
-        else resolve(result as CloudinaryUploadResult);
+        else resolve(result as UploadApiResponse);
       }
     ).end(file.buffer);
   });

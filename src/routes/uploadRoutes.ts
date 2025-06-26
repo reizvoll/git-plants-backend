@@ -5,7 +5,7 @@ import {
   uploadCropImage,
   uploadIconImage,
   uploadPotImage
-} from '@/controllers/uploadController';
+} from '@/controllers/upload/uploadController';
 import { adminAuth } from '@/middlewares/authMiddleware';
 import express from 'express';
 
