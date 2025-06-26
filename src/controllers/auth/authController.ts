@@ -1,5 +1,5 @@
+import prisma from '@/config/db';
 import { Request, Response } from 'express';
-import prisma from '../config/db';
 
 export const createUser = async (req: Request, res: Response) => {
   try {
