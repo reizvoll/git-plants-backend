@@ -13,7 +13,7 @@ import {
   updateBadge,
   updateGardenItem,
   updateMonthlyPlant
-} from '@/controllers/adminController';
+} from '@/controllers/admin/adminController';
 import { adminAuth, logout } from '@/middlewares/authMiddleware';
 import express from 'express';
 
