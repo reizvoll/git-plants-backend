@@ -1,178 +1,24 @@
-import { authConfig } from '@/config/auth';
-import prisma from '@/config/db';
-import { clientAuth, generateTokens, logout } from '@/middlewares/authMiddleware';
+import { githubCallback, startGitHubAuth } from '@/controllers/auth/githubController';
+import { getSession, refreshToken } from '@/controllers/auth/sessionController';
+import { clientAuth, logout } from '@/middlewares/authMiddleware';
 import { loginLimiter } from '@/middlewares/rateLimiter';
-import { AuthRequest } from '@/types/auth';
-import axios from 'axios';
-import express, { Response } from 'express';
+import express from 'express';
 
 const router = express.Router();
 
 // start GitHub OAuth login
-router.get('/github', loginLimiter, (req, res) => {
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}`;
-    res.redirect(githubAuthUrl);
-});
+router.get('/github', loginLimiter, startGitHubAuth);
 
 // GitHub OAuth callback
-router.get('/callback/github', async (req, res) => {
-  const { code } = req.query;
-  
-  try {
-    // get GitHub access token
-    const tokenResponse = await axios.post('https://github.com/login/oauth/access_token', {
-      client_id: authConfig.github.clientId,
-      client_secret: authConfig.github.clientSecret,
-      code,
-    }, {
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    const { access_token } = tokenResponse.data;
-
-    // get GitHub user info
-    const userResponse = await axios.get('https://api.github.com/user', {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    });
-
-    const githubUser = userResponse.data;
-
-    // save or update user info
-    const userData = {
-      githubId: githubUser.id.toString(),
-      username: githubUser.login,
-      accessToken: access_token,
-      image: githubUser.avatar_url,
-    };
-
-    const user = await prisma.user.upsert({
-      where: { githubId: githubUser.id.toString() },
-      update: userData,
-      create: userData,
-    });
-
-    // Check if user is admin
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: user.id }
-    });
-
-    // generate tokens
-    const tokens = await generateTokens(user.id, !!superUser);
-
-    // set cookies based on user type
-    if (superUser) {
-      // Set admin cookies with improved settings
-      res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
-        ...authConfig.cookie.admin.options,
-        maxAge: 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
-      });
-
-      res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
-        ...authConfig.cookie.admin.options,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
-    } else {
-      // Set client cookies with improved settings
-      res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
-        ...authConfig.cookie.client.options,
-        maxAge: 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
-      });
-
-      res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
-        ...authConfig.cookie.client.options,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
-    }
-
-    // redirect to frontend
-    res.redirect(`${process.env.CLIENT_URL}/auth/callback`);
-  } catch (error) {
-    console.error('GitHub OAuth error:', error);
-    res.redirect(`${process.env.CLIENT_URL}/auth/error`);
-  }
-});
+router.get('/callback/github', githubCallback);
 
 // check session for client
-router.get('/session', clientAuth, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user?.id) {
-      return res.status(401).json({ message: 'User not authenticated' });
-    }
-
-    const [user, superUser] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: req.user.id },
-        select: {
-          username: true,
-          image: true,
-        },
-      }),
-      prisma.superUser.findUnique({
-        where: { userId: req.user.id },
-      }),
-    ]);
-
-    res.json({
-      user,
-      isAdmin: !!superUser
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching session' });
-  }
-});
+router.get('/session', clientAuth, getSession);
 
 // logout
 router.post('/signout', clientAuth, logout);
 
 // refresh token endpoint
-router.post('/refresh', async (req, res) => {
-  try {
-    const isAdmin = req.cookies[authConfig.cookie.admin.refreshTokenName] !== undefined;
-    const cookieConfig = isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
-    const refreshToken = req.cookies[cookieConfig.refreshTokenName];
-
-    if (!refreshToken) {
-      return res.status(401).json({ message: 'No refresh token provided' });
-    }
-
-    const storedToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true }
-    });
-
-    if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked) {
-      return res.status(401).json({ message: 'Invalid refresh token' });
-    }
-
-    const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
-
-    res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
-      ...cookieConfig.options,
-      maxAge: 60 * 60 * 1000 // 1 hour
-    });
-
-    res.cookie(cookieConfig.refreshTokenName, tokens.refreshToken, {
-      ...cookieConfig.options,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    return res.status(200).json({ 
-      message: 'Token refreshed successfully',
-      user: {
-        id: storedToken.user.id,
-        username: storedToken.user.username,
-        image: storedToken.user.image,
-      },
-      isAdmin: storedToken.isAdmin
-    });
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return res.status(500).json({ message: 'Error refreshing token' });
-  }
-});
+router.post('/refresh', refreshToken);
 
 export default router; 

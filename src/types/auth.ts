@@ -13,6 +13,7 @@ export interface AuthRequest extends Request {
     createdAt: Date;
     updatedAt: Date;
   };
+  isAdmin?: boolean;
 }
 
 export interface AccessTokenPayload extends JwtPayload {
