@@ -1,11 +1,8 @@
-import {
-  upload,
-  uploadBackgroundImage,
-  uploadBadgeImage,
-  uploadCropImage,
-  uploadIconImage,
-  uploadPotImage
-} from '@/controllers/upload/uploadController';
+import { upload } from '@/controllers/upload/uploadController';
+import { uploadPlantImage, uploadCropImage } from '@/controllers/upload/plantUploadController';
+import { uploadBackgroundImage, uploadPotImage } from '@/controllers/upload/gardenItemUploadController';
+import { uploadBadgeImage } from '@/controllers/upload/badgeUploadController';
+import { uploadIconImage } from '@/controllers/upload/iconUploadController';
 import { adminAuth } from '@/middlewares/authMiddleware';
 import express from 'express';
 
@@ -13,6 +10,17 @@ const router = express.Router();
 
 // Apply admin authentication middleware to all routes
 router.use(adminAuth);
+
+// upload plant image
+router.post('/plants', upload.fields([
+  { name: 'mainImage', maxCount: 1 },
+  { name: 'iconImage', maxCount: 1 },
+  { name: 'seed', maxCount: 1 },
+  { name: 'sprout', maxCount: 1 },
+  { name: 'growing', maxCount: 1 },
+  { name: 'mature', maxCount: 1 },
+  { name: 'harvest', maxCount: 1 }
+]), uploadPlantImage);
 
 // upload crop image
 router.post('/crops', upload.single('image'), uploadCropImage);
