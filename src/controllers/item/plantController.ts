@@ -10,7 +10,14 @@ export const getPlants = async (req: AuthRequest, res: Response) => {
       include: { growthLogs: true },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(plants);
+    
+    // Add current stage image URL to each plant
+    const plantsWithCurrentImage = plants.map(plant => ({
+      ...plant,
+      currentImageUrl: getCurrentStageImageUrl(plant.imageUrls, plant.stage)
+    }));
+    
+    res.json(plantsWithCurrentImage);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching plants' });
   }
@@ -40,17 +47,24 @@ export const getPlantById = async (req: AuthRequest, res: Response) => {
 // Create a new plant
 export const createPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { name } = req.body;
+    const { name, imageUrls } = req.body;
     
     if (!name) {
       return res.status(400).json({ message: 'Plant name is required' });
+    }
+    
+    // Validate imageUrls array (should have 5 images for all growth stages)
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length !== 5) {
+      return res.status(400).json({ 
+        message: 'imageUrls array with exactly 5 images is required (SEED, SPROUT, GROWING, MATURE, HARVEST)' 
+      });
     }
     
     const plant = await prisma.plant.create({
       data: {
         name,
         userId: req.user!.id,
-        imageUrl: '',
+        imageUrls: imageUrls,
         stage: 'SEED',
         currentContributions: 0
       }
@@ -164,4 +178,17 @@ function determineGrowthStage(contributions: number): 'SEED' | 'SPROUT' | 'GROWI
   if (contributions >= 30) return 'GROWING';
   if (contributions >= 10) return 'SPROUT';
   return 'SEED';
+}
+
+// Helper function to get current stage image URL
+function getCurrentStageImageUrl(imageUrls: string[], stage: 'SEED' | 'SPROUT' | 'GROWING' | 'MATURE' | 'HARVEST'): string {
+  const stageIndex = {
+    'SEED': 0,
+    'SPROUT': 1,
+    'GROWING': 2,
+    'MATURE': 3,
+    'HARVEST': 4
+  };
+  
+  return imageUrls[stageIndex[stage]] || '';
 } 
