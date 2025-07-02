@@ -44,7 +44,7 @@ model Plant {
   id                   String      @id @default(cuid())
   userId               String
   name                 String
-  imageUrl             String
+  imageUrls            String[]
   stage                GrowthStage @default(SEED)
   currentContributions Int         @default(0)
   createdAt            DateTime    @default(now())
