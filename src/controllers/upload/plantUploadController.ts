@@ -6,16 +6,10 @@ import { PLANT_STAGES, uploadToCloudinary } from './uploadController';
 
 const prisma = new PrismaClient();
 
-// upload plant image
+// upload plant images - 순수 이미지 업로드만 담당
 export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    const { name } = req.body;
-    
-    // Early validation
-    if (!name?.trim()) {
-      return res.status(400).json({ message: 'Plant name is required' });
-    }
     
     // Check required images
     if (!files.mainImage?.[0]) {
@@ -53,9 +47,10 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
     );
     
     // Parallel upload for growth stage images
+    const plantName = req.body.plantName || 'plant';
     const uploadPromises = PLANT_STAGES.map(async (stage) => {
       const file = files[stage][0];
-      const filename = `${name.trim()}_${stage}`;
+      const filename = `${plantName.trim()}_${stage}`;
       
       const result = await uploadToCloudinary(
         file, 
@@ -69,23 +64,13 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
     // Wait for all growth stage uploads to complete
     const growthImageUrls = await Promise.all(uploadPromises);
     
-    // Create plant with all image URLs
-    const plant = await prisma.plant.create({
-      data: {
-        name: name.trim(),
-        imageUrls: growthImageUrls,
-        userId: req.user!.id,
-        stage: 'SEED',
-        currentContributions: 0
-      }
-    });
-    
     res.json({ 
       data: { 
-        plant,
         mainImage: mainResult,
         iconImage: iconResult,
-        growthImages: growthImageUrls
+        growthImages: growthImageUrls,
+        imageUrls: growthImageUrls, // createMonthlyPlant에서 사용할 수 있도록
+        iconUrl: iconResult.secure_url // createMonthlyPlant에서 사용할 수 있도록
       } 
     });
   } catch (error) {
@@ -94,28 +79,12 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// upload crop image
+// upload crop image - 이 함수는 이제 사용하지 않을 예정이지만 호환성을 위해 유지
 export const uploadCropImage = async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image file is required' });
-    }
-
-    const filename = req.body.filename || req.file.originalname;
-    const result = await uploadToCloudinary(req.file, 'git-plants(crops)', 'images/crops', filename);
-    
-    // Create plant directly with image URL (using the uploaded image for SEED stage)
-    const plant = await prisma.plant.create({
-      data: {
-        name: filename,
-        imageUrls: [result.secure_url, '', '', '', ''], // SEED stage only, others empty for now
-        userId: req.user!.id,
-        stage: 'SEED',
-        currentContributions: 0
-      }
+    return res.status(400).json({ 
+      message: 'This endpoint is deprecated. Please use MonthlyPlant creation instead.' 
     });
-
-    res.json({ data: { ...result, plant } });
   } catch (error) {
     console.error('Plant image upload error:', error);
     res.status(500).json({ message: 'Image upload failed' });
