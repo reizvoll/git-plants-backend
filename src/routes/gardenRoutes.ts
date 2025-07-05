@@ -6,6 +6,7 @@ import {
     getMonthlyPlants,
     getUserBadges,
     getUserItems,
+    getUserCrops,
     purchaseItem
 } from '@/controllers/item/gardenController';
 import { clientAuth } from '@/middlewares/authMiddleware';
@@ -28,6 +29,9 @@ router.get('/items/:id', getGardenItemById);
 
 // Get user's items
 router.get('/user-items', getUserItems);
+
+// Get user's crops specifically
+router.get('/user-crops', getUserCrops);
 
 // Purchase item for user
 router.post('/user-items', purchaseItem);

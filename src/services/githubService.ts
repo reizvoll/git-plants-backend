@@ -7,6 +7,55 @@ type GitHubActivityInput = Omit<GitHubActivity, 'id'>;
 // Save auto sync users
 const autoSyncUsers = new Map<string, NodeJS.Timeout>();
 
+// Auto-update all user's plants based on GitHub activities
+async function autoUpdateAllUserPlants(userId: string) {
+  try {
+    const activePlants = await prisma.userPlant.findMany({
+      where: { 
+        userId,
+        stage: { not: 'HARVEST' }
+      },
+      include: {
+        monthlyPlant: true
+      }
+    });
+
+    for (const plant of activePlants) {
+      // Calculate contributions since planting
+      const contributions = await prisma.gitHubActivity.aggregate({
+        where: {
+          userId,
+          type: 'contribution',
+          createdAt: { gte: plant.plantedAt }
+        },
+        _sum: { contributionCount: true }
+      });
+
+      const totalContributions = contributions._sum.contributionCount || 0;
+      
+      // Determine new stage
+      let newStage = plant.stage;
+      if (totalContributions >= 70) newStage = 'HARVEST';
+      else if (totalContributions >= 50) newStage = 'MATURE';
+      else if (totalContributions >= 30) newStage = 'GROWING';
+      else if (totalContributions >= 10) newStage = 'SPROUT';
+      else newStage = 'SEED';
+
+      // Update plant stage if changed
+      if (newStage !== plant.stage) {
+        await prisma.userPlant.update({
+          where: { id: plant.id },
+          data: { stage: newStage }
+        });
+        
+        console.log(`Updated plant ${plant.id} stage from ${plant.stage} to ${newStage} (${totalContributions} contributions)`);
+      }
+    }
+  } catch (error) {
+    console.error('Error auto-updating plants:', error);
+  }
+}
+
 // GraphQL query definition
 const CONTRIBUTIONS_QUERY = `
   query($username: String!) {
@@ -193,6 +242,11 @@ export const fetchUserActivities = async (userId: string, username: string): Pro
         eventId: { in: newActivities.map((activity) => activity.eventId) },
       },
     })) as GitHubActivity[];
+
+    // Auto-update plant growth if there are new activities
+    if (newActivities.length > 0) {
+      await autoUpdateAllUserPlants(userId);
+    }
 
     return savedActivities;
   } catch (error) {

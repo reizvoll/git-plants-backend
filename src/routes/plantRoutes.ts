@@ -1,4 +1,4 @@
-import { addGrowthLog, createPlant, deletePlant, getPlantById, getPlants, updatePlant } from '@/controllers/item/plantController';
+import { updatePlantGrowth, createPlant, deletePlant, getPlantById, getPlants, updatePlant, getCurrentMonthPlant } from '@/controllers/item/plantController';
 import { clientAuth } from '@/middlewares/authMiddleware';
 import express from 'express';
 
@@ -6,6 +6,9 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(clientAuth);
+
+// Get current month's available plant
+router.get('/current-month', getCurrentMonthPlant);
 
 // Get all user's plants
 router.get('/', getPlants);
@@ -22,8 +25,8 @@ router.put('/:id', updatePlant);
 // Delete plant
 router.delete('/:id', deletePlant);
 
-// Growth Logs
-// Add growth log to a plant
-router.post('/:plantId/logs', addGrowthLog);
+// Plant Growth Update
+// Update plant growth based on GitHub activities
+router.post('/:userPlantId/update-growth', updatePlantGrowth);
 
 export default router; 

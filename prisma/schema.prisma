@@ -16,7 +16,7 @@ model User {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   githubActivities GitHubActivity[]
-  plants           Plant[]
+  userPlants       UserPlant[]
   seeds            Seed?
   refreshTokens    RefreshToken[]
   superUser        SuperUser?
@@ -40,31 +40,21 @@ model GitHubActivity {
   @@index([userId])
 }
 
-model Plant {
-  id                   String      @id @default(cuid())
-  userId               String
-  name                 String
-  imageUrls            String[]
-  stage                GrowthStage @default(SEED)
-  currentContributions Int         @default(0)
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  growthLogs           GrowthLog[]
-  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+model UserPlant {
+  id             String        @id @default(cuid())
+  userId         String
+  monthlyPlantId Int           // MonthlyPlant 참조
+  stage          GrowthStage   @default(SEED)
+  harvestCount   Int           @default(0) // 수확 횟수 추가
+  plantedAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyPlant   MonthlyPlant  @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([monthlyPlantId])
 }
 
-model GrowthLog {
-  id        String   @id @default(cuid())
-  plantId   String
-  log       String
-  count     Int
-  createdAt DateTime @default(now())
-  plant     Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
-
-  @@index([plantId])
-}
 
 model Seed {
   userId String @id
@@ -126,8 +116,10 @@ model UserBadge {
 
 model MonthlyPlant {
   title       String
+  name        String
   description String
-  imageUrl    String
+  imageUrls   String[]
+  iconUrl     String?
   month       Int
   year        Int
   createdAt   DateTime   @default(now())
@@ -135,6 +127,9 @@ model MonthlyPlant {
   updatedById String?
   id          Int        @id @default(autoincrement())
   updatedBy   SuperUser? @relation("MonthlyPlantUpdatedBy", fields: [updatedById], references: [id])
+  userPlants  UserPlant[]
+
+  @@unique([month, year])
 }
 
 model SuperUser {
