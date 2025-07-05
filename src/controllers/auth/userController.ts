@@ -40,9 +40,10 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         }
       }),
       // User's plants
-      prisma.plant.findMany({
+      prisma.userPlant.findMany({
         where: { userId },
-        orderBy: { createdAt: 'desc' }
+        include: { monthlyPlant: true },
+        orderBy: { plantedAt: 'desc' }
       })
     ]);
 

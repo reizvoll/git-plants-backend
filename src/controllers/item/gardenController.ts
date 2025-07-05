@@ -38,14 +38,43 @@ export const getGardenItemById = async (req: AuthRequest, res: Response) => {
 // Get user's items
 export const getUserItems = async (req: AuthRequest, res: Response) => {
   try {
+    const { category } = req.query;
+    
     const userItems = await prisma.userItem.findMany({
-      where: { userId: req.user!.id },
+      where: {
+        userId: req.user!.id,
+        ...(category && {
+          item: {
+            category: category as string
+          }
+        })
+      },
       include: { item: true },
       orderBy: { acquiredAt: 'desc' }
     });
     res.json(userItems);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching user items' });
+  }
+};
+
+// Get user's crops specifically
+export const getUserCrops = async (req: AuthRequest, res: Response) => {
+  try {
+    const userCrops = await prisma.userItem.findMany({
+      where: { 
+        userId: req.user!.id,
+        item: {
+          category: 'crops'
+        }
+      },
+      include: { item: true },
+      orderBy: { acquiredAt: 'desc' }
+    });
+    
+    res.json(userCrops);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user crops' });
   }
 };
 
