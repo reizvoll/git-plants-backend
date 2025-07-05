@@ -44,7 +44,7 @@ export const getAdminStats = async (req: AuthRequest, res: Response) => {
       recentUsers
     ] = await Promise.all([
       prisma.user.count(),
-      prisma.plant.count(),
+      prisma.userPlant.count(),
       prisma.gardenItem.count(),
       prisma.badge.count(),
       prisma.user.findMany({
@@ -87,10 +87,28 @@ export const getMonthlyPlants = async (req: AuthRequest, res: Response) => {
 
 export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, month, year } = req.body;
+    const { title, name, description, imageUrls, iconUrl, month, year } = req.body;
     
-    if (!title || !description || !imageUrl || !month || !year) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!title || !name || !description || !imageUrls || !month || !year) {
+      return res.status(400).json({ message: 'Title, name, description, imageUrls, month, and year are required' });
+    }
+    
+    // Validate imageUrls array (should have 5 images for all growth stages)
+    if (!Array.isArray(imageUrls) || imageUrls.length !== 5) {
+      return res.status(400).json({ 
+        message: 'imageUrls array with exactly 5 images is required (SEED, SPROUT, GROWING, MATURE, HARVEST)' 
+      });
+    }
+    
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
     }
     
     const existingPlant = await prisma.monthlyPlant.findFirst({
@@ -107,36 +125,64 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
     const monthlyPlant = await prisma.monthlyPlant.create({
       data: {
         title,
+        name,
         description,
-        imageUrl,
+        imageUrls,
+        iconUrl,
         month: parseInt(month),
         year: parseInt(year),
-        updatedById: req.user!.id
+        updatedById: superUser.id
       }
     });
     
     res.status(201).json(monthlyPlant);
   } catch (error) {
+    console.error('Monthly plant creation error:', error);
     res.status(500).json({ message: 'Error creating monthly plant' });
   }
 };
 
 export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl } = req.body;
+    const { title, name, description, imageUrls, iconUrl } = req.body;
+    
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+    
+    // Build update data object with only provided fields
+    const updateData: any = {
+      updatedById: superUser.id
+    };
+    
+    if (title) updateData.title = title;
+    if (name) updateData.name = name;
+    if (description) updateData.description = description;
+    if (iconUrl) updateData.iconUrl = iconUrl;
+    if (imageUrls) {
+      if (!Array.isArray(imageUrls) || imageUrls.length !== 5) {
+        return res.status(400).json({ 
+          message: 'imageUrls array with exactly 5 images is required (SEED, SPROUT, GROWING, MATURE, HARVEST)' 
+        });
+      }
+      updateData.imageUrls = imageUrls;
+    }
     
     const updatedPlant = await prisma.monthlyPlant.update({
       where: { id: parseInt(req.params.id) },
-      data: {
-        title,
-        description,
-        imageUrl,
-        updatedById: req.user!.id
-      }
+      data: updateData
     });
     
     res.json(updatedPlant);
   } catch (error) {
+    console.error('Monthly plant update error:', error);
     res.status(500).json({ message: 'Error updating monthly plant' });
   }
 };
@@ -212,6 +258,17 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
       });
     }
     
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+    
     const updatedItem = await prisma.gardenItem.update({
       where: { id: parseInt(req.params.id) },
       data: {
@@ -220,12 +277,13 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
         imageUrl,
         price: parseInt(price),
         mode: mode || 'default',
-        updatedById: req.user!.id
+        updatedById: superUser.id
       }
     });
     
     res.json(category === 'background' ? updatedItem : { ...updatedItem, mode: undefined });
   } catch (error) {
+    console.error('Garden item update error:', error);
     res.status(500).json({ message: 'Error updating item' });
   }
 };
@@ -247,17 +305,29 @@ export const createBadge = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
     
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+    
     const badge = await prisma.badge.create({
       data: {
         name,
         condition,
         imageUrl,
-        updatedById: req.user!.id
+        updatedById: superUser.id
       }
     });
     
     res.status(201).json(badge);
   } catch (error) {
+    console.error('Badge creation error:', error);
     res.status(500).json({ message: 'Error creating badge' });
   }
 };
@@ -266,18 +336,30 @@ export const updateBadge = async (req: AuthRequest, res: Response) => {
   try {
     const { name, condition, imageUrl } = req.body;
     
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+    
     const updatedBadge = await prisma.badge.update({
       where: { id: parseInt(req.params.id) },
       data: {
         name,
         condition,
         imageUrl,
-        updatedById: req.user!.id
+        updatedById: superUser.id
       }
     });
     
     res.json(updatedBadge);
   } catch (error) {
+    console.error('Badge update error:', error);
     res.status(500).json({ message: 'Error updating badge' });
   }
 };
@@ -287,7 +369,7 @@ export const getAdminUsers = async (req: AuthRequest, res: Response) => {
     const superUsers = await prisma.superUser.findMany({
       include: { user: true }
     });
-    res.json(superUsers);
+    return res.status(200).json(superUsers);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching admin users' });
   }
@@ -319,8 +401,7 @@ export const deleteAdminUser = async (req: AuthRequest, res: Response) => {
     await prisma.superUser.delete({
       where: { id: req.params.id }
     });
-    
-    res.status(204).send();
+    return res.status(200).json({ message: "User deleted successfully", user: req.user });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting admin user' });
   }
