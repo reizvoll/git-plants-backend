@@ -225,4 +225,105 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: 'Error fetching monthly plant' });
   }
+};
+
+// UPDATE NOTES
+
+// Get current month's update (plant + new items)
+export const getCurrentUpdate = async (req: Request, res: Response) => {
+  try {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    // Get current month's update note
+    const updateNote = await prisma.updateNote.findFirst({
+      where: {
+        month: currentMonth,
+        year: currentYear,
+        isActive: true
+      },
+      include: {
+        gardenItems: true
+      }
+    });
+    
+    // Get current month's plant
+    const monthlyPlant = await prisma.monthlyPlant.findFirst({
+      where: {
+        month: currentMonth,
+        year: currentYear
+      }
+    });
+    
+    // Prepare response
+    const response = {
+      month: currentMonth,
+      year: currentYear,
+      plant: monthlyPlant,
+      updateNote: updateNote ? {
+        id: updateNote.id,
+        title: updateNote.title,
+        description: updateNote.description,
+        imageUrl: updateNote.imageUrl
+      } : null,
+      newItems: updateNote?.gardenItems || []
+    };
+    
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching current update' });
+  }
+};
+
+// Get update history
+export const getUpdateHistory = async (req: AuthRequest, res: Response) => {
+  try {
+    const { limit = 10, offset = 0 } = req.query;
+    
+    const updateNotes = await prisma.updateNote.findMany({
+      where: {
+        isActive: true
+      },
+      include: {
+        gardenItems: true
+      },
+      orderBy: [
+        { year: 'desc' },
+        { month: 'desc' }
+      ],
+      take: parseInt(limit as string),
+      skip: parseInt(offset as string)
+    });
+    
+    // Format response with monthly plants and items
+    const formattedUpdates = await Promise.all(
+      updateNotes.map(async (updateNote) => {
+        const monthlyPlant = await prisma.monthlyPlant.findFirst({
+          where: {
+            month: updateNote.month,
+            year: updateNote.year
+          }
+        });
+        
+        return {
+          month: updateNote.month,
+          year: updateNote.year,
+          updateNote: {
+            id: updateNote.id,
+            title: updateNote.title,
+            description: updateNote.description,
+            imageUrl: updateNote.imageUrl,
+            createdAt: updateNote.createdAt
+          },
+          plant: monthlyPlant,
+          newItems: updateNote.gardenItems
+        };
+      })
+    );
+    
+    res.json(formattedUpdates);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching update history' });
+  }
 }; 
