@@ -75,6 +75,7 @@ model GardenItem {
   id          Int        @id @default(autoincrement())
   updatedBy   SuperUser? @relation("GardenItemUpdatedBy", fields: [updatedById], references: [id])
   userItems   UserItem[]
+  updateNotes UpdateNote[]
 }
 
 model UserItem {
@@ -140,6 +141,7 @@ model SuperUser {
   badgeEdits Badge[]        @relation("BadgeUpdatedBy")
   itemEdits  GardenItem[]   @relation("GardenItemUpdatedBy")
   plantEdits MonthlyPlant[] @relation("MonthlyPlantUpdatedBy")
+  updateNoteEdits UpdateNote[] @relation("UpdateNoteUpdatedBy")
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -154,6 +156,24 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model UpdateNote {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String
+  imageUrl     String
+  month        Int
+  year         Int
+  isActive     Boolean  @default(true)
+  gardenItems  GardenItem[] // GardenItem과의 many-to-many 관계 추가
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  updatedById  String?
+  
+  updatedBy    SuperUser? @relation("UpdateNoteUpdatedBy", fields: [updatedById], references: [id])
+  
+  @@unique([month, year])
 }
 
 enum GrowthStage {
