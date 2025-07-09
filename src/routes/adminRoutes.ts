@@ -3,16 +3,20 @@ import {
   createBadge,
   createGardenItem,
   createMonthlyPlant,
+  createUpdateNote,
   deleteAdminUser,
+  deleteUpdateNote,
   getAdminSession,
   getAdminStats,
   getAdminUsers,
   getBadges,
   getGardenItems,
   getMonthlyPlants,
+  getUpdateNotes,
   updateBadge,
   updateGardenItem,
-  updateMonthlyPlant
+  updateMonthlyPlant,
+  updateUpdateNote
 } from '@/controllers/admin/adminController';
 import { adminAuth, logout } from '@/middlewares/authMiddleware';
 import express from 'express';
@@ -45,6 +49,12 @@ router.put('/items/:id', updateGardenItem);
 router.get('/badges', getBadges);
 router.post('/badges', createBadge);
 router.put('/badges/:id', updateBadge);
+
+// UPDATE NOTE MANAGEMENT
+router.get('/update-notes', getUpdateNotes);
+router.post('/update-notes', createUpdateNote);
+router.put('/update-notes/:id', updateUpdateNote);
+router.delete('/update-notes/:id', deleteUpdateNote);
 
 // ADMIN USER MANAGEMENT
 router.get('/users', getAdminUsers);

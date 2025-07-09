@@ -405,4 +405,141 @@ export const deleteAdminUser = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: 'Error deleting admin user' });
   }
+};
+
+// UPDATE NOTE MANAGEMENT
+export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
+  try {
+    const updateNotes = await prisma.updateNote.findMany({
+      include: {
+        gardenItems: true
+      },
+      orderBy: [
+        { year: 'desc' },
+        { month: 'desc' }
+      ]
+    });
+    res.json(updateNotes);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching update notes' });
+  }
+};
+
+export const createUpdateNote = async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, description, imageUrl, month, year, gardenItemIds } = req.body;
+    
+    if (!title || !description || !imageUrl || !month || !year) {
+      return res.status(400).json({ 
+        message: 'Title, description, imageUrl, month, and year are required' 
+      });
+    }
+    
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+    
+    // Check if update note already exists for this month/year
+    const existingUpdateNote = await prisma.updateNote.findFirst({
+      where: {
+        month: parseInt(month),
+        year: parseInt(year)
+      }
+    });
+    
+    if (existingUpdateNote) {
+      return res.status(409).json({ 
+        message: 'An update note already exists for this month and year' 
+      });
+    }
+    
+    // Create update note
+    const updateNote = await prisma.updateNote.create({
+      data: {
+        title,
+        description,
+        imageUrl,
+        month: parseInt(month),
+        year: parseInt(year),
+        updatedById: superUser.id,
+        gardenItems: gardenItemIds ? {
+          connect: gardenItemIds.map((id: number) => ({ id }))
+        } : undefined
+      },
+      include: {
+        gardenItems: true
+      }
+    });
+    
+    res.status(201).json(updateNote);
+  } catch (error) {
+    console.error('Update note creation error:', error);
+    res.status(500).json({ message: 'Error creating update note' });
+  }
+};
+
+export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, description, imageUrl, isActive, gardenItemIds } = req.body;
+    
+    // Check if user is SuperUser
+    const superUser = await prisma.superUser.findUnique({
+      where: { userId: req.user!.id }
+    });
+
+    if (!superUser) {
+      return res.status(403).json({ 
+        message: 'Not authorized as admin' 
+      });
+    }
+    
+    // Build update data
+    const updateData: any = {
+      updatedById: superUser.id
+    };
+    
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    
+    // Handle garden items relationship
+    if (gardenItemIds !== undefined) {
+      updateData.gardenItems = {
+        set: [], // Clear existing connections
+        connect: gardenItemIds.map((id: number) => ({ id }))
+      };
+    }
+    
+    const updatedNote = await prisma.updateNote.update({
+      where: { id: parseInt(req.params.id) },
+      data: updateData,
+      include: {
+        gardenItems: true
+      }
+    });
+    
+    res.json(updatedNote);
+  } catch (error) {
+    console.error('Update note update error:', error);
+    res.status(500).json({ message: 'Error updating update note' });
+  }
 }; 
+
+export const deleteUpdateNote = async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.updateNote.delete({
+      where: { id: parseInt(req.params.id) }
+    });
+    res.status(200).json({ message: 'Update note deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting update note' });
+  }
+};
