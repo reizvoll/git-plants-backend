@@ -4,12 +4,14 @@ import { AccessTokenPayload, TokenResponse, UserPayload } from '@/types/auth';
 import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { SuperUser } from '@prisma/client';
 
 declare global {
     namespace Express {
         interface Request {
             user?: UserPayload;
             isAdmin?: boolean;
+            superUser?: SuperUser;
         }
     }
 }
@@ -183,8 +185,19 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
             if (!decoded.isAdmin) {
                 return res.status(403).json({ message: 'Client token not allowed for admin routes' });
             }
+            
+            // Verify SuperUser in database
+            const superUser = await prisma.superUser.findUnique({
+                where: { userId: decoded.id }
+            });
+
+            if (!superUser) {
+                return res.status(403).json({ message: 'Not authorized as admin' });
+            }
+
             req.user = { id: decoded.id, username: decoded.username, image: decoded.image };
             req.isAdmin = true;
+            req.superUser = superUser;
             next();
         } catch (error) {
             if (!(error instanceof jwt.TokenExpiredError)) throw error;
@@ -199,6 +212,15 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
 
             if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked || !storedToken.isAdmin) {
                 return res.status(401).json({ message: 'Invalid refresh token' });
+            }
+
+            // Verify SuperUser in database for token refresh
+            const superUser = await prisma.superUser.findUnique({
+                where: { userId: storedToken.userId }
+            });
+
+            if (!superUser) {
+                return res.status(403).json({ message: 'Not authorized as admin' });
             }
 
             const tokens = await generateTokens(storedToken.userId, true);
