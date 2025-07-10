@@ -12,16 +12,7 @@ export const uploadUpdateNoteImage = async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ message: 'Image file is required' });
     }
 
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-    
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
 
     const filename = req.body.filename || req.file.originalname;
 

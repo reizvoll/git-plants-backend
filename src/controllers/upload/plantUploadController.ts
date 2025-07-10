@@ -4,9 +4,7 @@ import { AuthRequest } from '@/types/auth';
 import { PLANT_STAGES, uploadToCloudinary } from './uploadController';
 
 
-const prisma = new PrismaClient();
-
-// upload plant images - 순수 이미지 업로드만 담당
+// upload plant images
 export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
