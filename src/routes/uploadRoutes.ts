@@ -2,7 +2,6 @@ import { upload } from '@/controllers/upload/uploadController';
 import { uploadPlantImage, uploadCropImage } from '@/controllers/upload/plantUploadController';
 import { uploadBackgroundImage, uploadPotImage } from '@/controllers/upload/gardenItemUploadController';
 import { uploadBadgeImage } from '@/controllers/upload/badgeUploadController';
-import { uploadIconImage } from '@/controllers/upload/iconUploadController';
 import { uploadUpdateNoteImage } from '@/controllers/upload/updateNoteUploadController';
 import { adminAuth } from '@/middlewares/authMiddleware';
 import express from 'express';
@@ -43,8 +42,5 @@ router.post('/badges', upload.single('image'), uploadBadgeImage);
 
 // upload update-note image
 router.post('/update-notes', upload.single('image'), uploadUpdateNoteImage);
-
-// upload icon image for garden item
-router.post('/icons/:itemId', upload.single('image'), uploadIconImage);
 
 export default router; 

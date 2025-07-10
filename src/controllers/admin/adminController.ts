@@ -100,16 +100,7 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
       });
     }
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     const existingPlant = await prisma.monthlyPlant.findFirst({
       where: {
@@ -131,7 +122,7 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
         iconUrl,
         month: parseInt(month),
         year: parseInt(year),
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
     
@@ -146,20 +137,11 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
     const { title, name, description, imageUrls, iconUrl } = req.body;
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     // Build update data object with only provided fields
     const updateData: any = {
-      updatedById: superUser.id
+      updatedById: req.superUser!.id
     };
     
     if (title) updateData.title = title;
@@ -214,15 +196,7 @@ export const createGardenItem = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
@@ -232,7 +206,7 @@ export const createGardenItem = async (req: AuthRequest, res: Response) => {
         iconUrl,
         price: parseInt(price),
         mode: mode || 'default',
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
 
@@ -258,16 +232,7 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
       });
     }
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     const updatedItem = await prisma.gardenItem.update({
       where: { id: parseInt(req.params.id) },
@@ -277,7 +242,7 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
         imageUrl,
         price: parseInt(price),
         mode: mode || 'default',
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
     
@@ -305,23 +270,14 @@ export const createBadge = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     const badge = await prisma.badge.create({
       data: {
         name,
         condition,
         imageUrl,
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
     
@@ -336,16 +292,7 @@ export const updateBadge = async (req: AuthRequest, res: Response) => {
   try {
     const { name, condition, imageUrl } = req.body;
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     const updatedBadge = await prisma.badge.update({
       where: { id: parseInt(req.params.id) },
@@ -353,7 +300,7 @@ export const updateBadge = async (req: AuthRequest, res: Response) => {
         name,
         condition,
         imageUrl,
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
     
@@ -435,16 +382,7 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
       });
     }
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     // Check if update note already exists for this month/year
     const existingUpdateNote = await prisma.updateNote.findFirst({
@@ -468,7 +406,7 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
         imageUrl,
         month: parseInt(month),
         year: parseInt(year),
-        updatedById: superUser.id,
+        updatedById: req.superUser!.id,
         gardenItems: gardenItemIds ? {
           connect: gardenItemIds.map((id: number) => ({ id }))
         } : undefined
@@ -489,20 +427,11 @@ export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, imageUrl, isActive, gardenItemIds } = req.body;
     
-    // Check if user is SuperUser
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
     
     // Build update data
     const updateData: any = {
-      updatedById: superUser.id
+      updatedById: req.superUser!.id
     };
     
     if (title !== undefined) updateData.title = title;

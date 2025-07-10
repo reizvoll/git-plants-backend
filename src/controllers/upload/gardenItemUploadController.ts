@@ -39,16 +39,7 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
       iconFilename
     );
     
-    // save image info to DB
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
@@ -58,7 +49,7 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
         iconUrl: iconResult.secure_url,
         price: parseInt(req.body.price) || 0,
         mode: mode,
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
 
@@ -103,16 +94,7 @@ export const uploadPotImage = async (req: AuthRequest, res: Response) => {
       iconFilename
     );
     
-    // save image info to DB
-    const superUser = await prisma.superUser.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!superUser) {
-      return res.status(403).json({ 
-        message: 'Not authorized as admin' 
-      });
-    }
+    // SuperUser validation is already done in adminAuth middleware
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
@@ -121,7 +103,7 @@ export const uploadPotImage = async (req: AuthRequest, res: Response) => {
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
         price: parseInt(req.body.price) || 0,
-        updatedById: superUser.id
+        updatedById: req.superUser!.id
       }
     });
 
