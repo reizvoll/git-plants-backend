@@ -1,23 +1,8 @@
-import {
-  createAdminUser,
-  createBadge,
-  createGardenItem,
-  createMonthlyPlant,
-  createUpdateNote,
-  deleteAdminUser,
-  deleteUpdateNote,
-  getAdminSession,
-  getAdminStats,
-  getAdminUsers,
-  getBadges,
-  getGardenItems,
-  getMonthlyPlants,
-  getUpdateNotes,
-  updateBadge,
-  updateGardenItem,
-  updateMonthlyPlant,
-  updateUpdateNote
-} from '@/controllers/admin/adminController';
+import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAdminUsers } from '@/controllers/admin/adminController';
+import { createBadge, createGardenItem, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
+import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
+import { createUpdateNote, deleteUpdateNote, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
+import { getBadges, getGardenItems, getMonthlyPlants } from '@/controllers/item/gardenController';
 import { adminAuth, logout } from '@/middlewares/authMiddleware';
 import express from 'express';
 
@@ -37,8 +22,10 @@ router.get('/stats', getAdminStats);
 
 // MONTHLY PLANT MANAGEMENT
 router.get('/monthly-plants', getMonthlyPlants);
+router.get('/monthly-plants/:id', getMonthlyPlantById);
 router.post('/monthly-plants', createMonthlyPlant);
 router.put('/monthly-plants/:id', updateMonthlyPlant);
+router.delete('/monthly-plants/:id', deleteMonthlyPlant);
 
 // GARDEN ITEM MANAGEMENT
 router.get('/items', getGardenItems);
