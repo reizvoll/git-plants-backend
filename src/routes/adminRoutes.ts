@@ -5,12 +5,14 @@ import {
   createMonthlyPlant,
   createUpdateNote,
   deleteAdminUser,
+  deleteMonthlyPlant,
   deleteUpdateNote,
   getAdminSession,
   getAdminStats,
   getAdminUsers,
   getBadges,
   getGardenItems,
+  getMonthlyPlantById,
   getMonthlyPlants,
   getUpdateNotes,
   updateBadge,
@@ -37,8 +39,10 @@ router.get('/stats', getAdminStats);
 
 // MONTHLY PLANT MANAGEMENT
 router.get('/monthly-plants', getMonthlyPlants);
+router.get('/monthly-plants/:id', getMonthlyPlantById);
 router.post('/monthly-plants', createMonthlyPlant);
 router.put('/monthly-plants/:id', updateMonthlyPlant);
+router.delete('/monthly-plants/:id', deleteMonthlyPlant);
 
 // GARDEN ITEM MANAGEMENT
 router.get('/items', getGardenItems);

@@ -85,6 +85,22 @@ export const getMonthlyPlants = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getMonthlyPlantById = async (req: AuthRequest, res: Response) => {
+  try {
+    const monthlyPlant = await prisma.monthlyPlant.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+    
+    if (!monthlyPlant) {
+      return res.status(404).json({ message: 'Monthly plant not found' });
+    }
+    
+    res.json(monthlyPlant);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching monthly plant' });
+  }
+};
+
 export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
     const { title, name, description, imageUrls, iconUrl, month, year } = req.body;
@@ -166,6 +182,17 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Monthly plant update error:', error);
     res.status(500).json({ message: 'Error updating monthly plant' });
+  }
+};
+
+export const deleteMonthlyPlant = async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.monthlyPlant.delete({
+      where: { id: parseInt(req.params.id) }
+    });
+    res.status(200).json({ message: 'Monthly plant deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting monthly plant' });
   }
 };
 
