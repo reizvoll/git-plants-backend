@@ -1,25 +1,8 @@
-import {
-  createAdminUser,
-  createBadge,
-  createGardenItem,
-  createMonthlyPlant,
-  createUpdateNote,
-  deleteAdminUser,
-  deleteMonthlyPlant,
-  deleteUpdateNote,
-  getAdminSession,
-  getAdminStats,
-  getAdminUsers,
-  getBadges,
-  getGardenItems,
-  getMonthlyPlantById,
-  getMonthlyPlants,
-  getUpdateNotes,
-  updateBadge,
-  updateGardenItem,
-  updateMonthlyPlant,
-  updateUpdateNote
-} from '@/controllers/admin/adminController';
+import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAdminUsers } from '@/controllers/admin/adminController';
+import { createBadge, createGardenItem, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
+import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
+import { createUpdateNote, deleteUpdateNote, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
+import { getBadges, getGardenItems, getMonthlyPlants } from '@/controllers/item/gardenController';
 import { adminAuth, logout } from '@/middlewares/authMiddleware';
 import express from 'express';
 
