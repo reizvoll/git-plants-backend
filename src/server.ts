@@ -11,6 +11,7 @@ import plantRoutes from './routes/plantRoutes';
 import seedRoutes from './routes/seedRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import userRoutes from './routes/userRoutes';
+import publicRoutes from './routes/publicRoutes';
 
 dotenv.config();
 const app = express();
@@ -37,6 +38,7 @@ app.use('/api/seeds', seedRoutes);
 app.use('/api/garden', gardenRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/public', publicRoutes);
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
