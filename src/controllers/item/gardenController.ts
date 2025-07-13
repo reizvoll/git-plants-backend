@@ -276,6 +276,44 @@ export const getCurrentUpdate = async (req: Request, res: Response) => {
   }
 };
 
+// Get current month's update note and new items only (for shop page)
+export const getCurrentUpdateNote = async (req: Request, res: Response) => {
+  try {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    // Get current month's update note
+    const updateNote = await prisma.updateNote.findFirst({
+      where: {
+        month: currentMonth,
+        year: currentYear,
+        isActive: true
+      },
+      include: {
+        gardenItems: true
+      }
+    });
+    
+    // Prepare response (only update note and new items, no monthly plant)
+    const response = {
+      month: currentMonth,
+      year: currentYear,
+      updateNote: updateNote ? {
+        id: updateNote.id,
+        title: updateNote.title,
+        description: updateNote.description,
+        imageUrl: updateNote.imageUrl
+      } : null,
+      newItems: updateNote?.gardenItems || []
+    };
+    
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching current update note' });
+  }
+};
+
 // Get update history
 export const getUpdateHistory = async (req: AuthRequest, res: Response) => {
   try {
