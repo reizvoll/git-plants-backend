@@ -20,6 +20,21 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
+  try {
+    const updateNote = await prisma.updateNote.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+    if (!updateNote) {
+      return res.status(404).json({ message: 'Update note not found' });
+    }
+    
+    res.json(updateNote);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching update note' });
+  }
+} 
+
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, imageUrl, month, year, gardenItemIds } = req.body;
