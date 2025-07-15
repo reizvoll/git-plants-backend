@@ -54,7 +54,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     // Separate equipped items by category - return all equipped items
     const equippedBackgrounds = equippedItems.filter(item => 
       item.item.category === 'background' &&
-      (item.item.mode === 'GARDEN' || item.item.mode === 'MINI')  // 배경화면은 GARDEN 또는 MINI 모드
+      item.item.mode // 모드 조건 추가 (default 포함 - 공용 모드로 설정)
     ).map(item => item.item);
     
     const equippedPots = equippedItems.filter(item => 
