@@ -1,34 +1,28 @@
 export interface GitHubActivity {
   id: string;
   userId: string;
-  type: 'contribution' | 'commit' | 'pull_request';
-  repository: string;
-  title: string;
-  description?: string;
-  url: string;
-  eventId: string;
-  createdAt: Date;
-  contributionCount?: number;
+  date: Date;
+  count: number;
 }
+
+// Input type for creating GitHubActivity (without id)
+export type GitHubActivityInput = Omit<GitHubActivity, 'id'>;
 
 // ActivityFilter defines the filter criteria for querying GitHub activities
 export interface ActivityFilter {
   userId: string;
-  type?: 'contribution' | 'commit' | 'pull_request';
-  repository?: string;
-  createdAt?: {
+  date?: {
     gte?: Date;
     lte?: Date;
   };
 }
 
-// GitHubGraphQLResponse represents the structure of the GraphQL API response
+// Simplified GitHubGraphQLResponse - only contributions
 export interface GitHubGraphQLResponse {
   data: {
     user: {
       contributionsCollection: {
         contributionCalendar: {
-          totalContributions: number;
           weeks: Array<{
             contributionDays: Array<{
               date: string;
@@ -36,38 +30,6 @@ export interface GitHubGraphQLResponse {
             }>;
           }>;
         };
-      };
-      repositories: {
-        nodes: Array<{
-          name: string;
-          defaultBranchRef?: {
-            target?: {
-              history?: {
-                nodes: Array<{
-                  committedDate: string;
-                  message: string;
-                  url: string;
-                  author: {
-                    name: string;
-                    email: string;
-                  };
-                }>;
-              };
-            };
-          };
-          pullRequests?: {
-            nodes: Array<{
-              title: string;
-              url: string;
-              createdAt: string;
-              mergedAt?: string;
-              state: 'MERGED' | 'CLOSED';
-              repository: {
-                name: string;
-              };
-            }>;
-          };
-        }>;
       };
     } | null;
   };
@@ -90,14 +52,8 @@ export interface GroupByTimeline {
   };
 }
 
-// GroupByRepository represents the result of groupBy queries for repository distribution
-export interface GroupByRepository {
-  repository: string;
-  _count: number;
-}
-
-// Entry for a timeline, typically date and count
+// Contribution timeline entry for public contribution calendar
 export interface ContributionTimelineEntry {
-  date: Date;
+  date: string;
   count: number;
 }
