@@ -1,20 +1,7 @@
 import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
-
-// Calculate plant contributions based on GitHub activities since planting
-async function calculatePlantContributions(userPlantId: string, userId: string, plantedAt: Date): Promise<number> {
-  const contributions = await prisma.gitHubActivity.aggregate({
-    where: {
-      userId,
-      type: 'contribution',
-      createdAt: { gte: plantedAt }
-    },
-    _sum: { contributionCount: true }
-  });
-  
-  return contributions._sum.contributionCount || 0;
-}
+import { calculateMonthlyContributions, autoUpdateAllUserPlants } from '@/controllers/auth/userController';
 
 // Handle plant harvest - create crop item and reset plant
 async function handleHarvest(userPlant: any, userId: string) {
@@ -46,8 +33,7 @@ async function handleHarvest(userPlant: any, userId: string) {
   const userCrop = await prisma.userItem.create({
     data: {
       userId,
-      itemId: cropItem.id,
-      equipped: false
+      itemId: cropItem.id
     },
     include: {
       item: true
@@ -76,27 +62,8 @@ async function handleHarvest(userPlant: any, userId: string) {
 // Get all user's plants with GitHub-based contributions
 export const getPlants = async (req: AuthRequest, res: Response) => {
   try {
-    const userPlants = await prisma.userPlant.findMany({
-      where: { userId: req.user!.id },
-      include: { 
-        monthlyPlant: true
-      },
-      orderBy: { plantedAt: 'desc' }
-    });
-    
-    // Calculate current contributions for each plant based on GitHub activities
-    const plantsWithContributions = await Promise.all(
-      userPlants.map(async (userPlant) => {
-        const currentContributions = await calculatePlantContributions(userPlant.id, req.user!.id, userPlant.plantedAt);
-        
-        return {
-          ...userPlant,
-          currentContributions,
-          currentImageUrl: getCurrentStageImageUrl(userPlant.monthlyPlant.imageUrls, userPlant.stage)
-        };
-      })
-    );
-    
+    // 통합된 식물 업데이트 함수 사용
+    const plantsWithContributions = await autoUpdateAllUserPlants(req.user!.id);
     res.json(plantsWithContributions);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching plants' });
@@ -120,14 +87,15 @@ export const getPlantById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Plant not found' });
     }
     
-    // Calculate current contributions for this plant
-    const currentContributions = await calculatePlantContributions(req.params.id, req.user!.id, userPlant.plantedAt);
+    // 통합된 식물 업데이트 시스템 사용
+    const allPlants = await autoUpdateAllUserPlants(req.user!.id);
+    const targetPlant = allPlants.find(plant => plant.id === req.params.id);
     
-    res.json({
-      ...userPlant,
-      currentContributions,
-      currentImageUrl: getCurrentStageImageUrl(userPlant.monthlyPlant.imageUrls, userPlant.stage)
-    });
+    if (!targetPlant) {
+      return res.status(404).json({ message: 'Plant not found after update' });
+    }
+    
+    res.json(targetPlant);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching plant' });
   }
@@ -205,12 +173,12 @@ export const updatePlant = async (req: AuthRequest, res: Response) => {
       }
     });
     
-    // Calculate current contributions for response
-    const currentContributions = await calculatePlantContributions(req.params.id, req.user!.id, existingPlant.plantedAt);
+    // Calculate contributions for response using unified function
+    const contributions = await calculateMonthlyContributions(req.user!.id);
     
     res.json({
       ...updatedPlant,
-      currentContributions
+      contributions
     });
   } catch (error) {
     res.status(500).json({ message: 'Error updating plant' });
@@ -262,28 +230,15 @@ export const updatePlantGrowth = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Plant not found' });
     }
     
-    // Calculate current contributions from GitHub activities
-    const currentContributions = await calculatePlantContributions(userPlantId, req.user!.id, userPlant.plantedAt);
+    // 통합된 업데이트 시스템 사용
+    const allPlants = await autoUpdateAllUserPlants(req.user!.id);
+    const targetPlant = allPlants.find(plant => plant.id === userPlantId);
     
-    // Check if harvest is reached (70+ contributions)
-    if (currentContributions >= 70 && userPlant.stage !== 'HARVEST') {
-      // Handle harvest
-      const harvestResult = await handleHarvest(userPlant, req.user!.id);
-      res.json(harvestResult);
-    } else {
-      // Normal growth progression
-      const newStage = determineGrowthStage(currentContributions);
-      const updatedPlant = await prisma.userPlant.update({
-        where: { id: userPlantId },
-        data: { stage: newStage }
-      });
-      
-      res.json({
-        ...updatedPlant,
-        currentContributions,
-        currentImageUrl: getCurrentStageImageUrl(userPlant.monthlyPlant.imageUrls, newStage)
-      });
+    if (!targetPlant) {
+      return res.status(404).json({ message: 'Plant not found after update' });
     }
+    
+    res.json(targetPlant);
   } catch (error) {
     res.status(500).json({ message: 'Error updating plant growth' });
   }
@@ -314,7 +269,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
         monthlyPlantId: monthlyPlant.id
       },
       orderBy: {
-        plantedAt: 'desc'
+        updatedAt: 'desc'
       }
     });
     
