@@ -40,8 +40,20 @@ export async function autoUpdateAllUserPlants(userId: string) {
   try {
     const monthlyContributions = await calculateMonthlyContributions(userId);
     
+    // Get current month and year
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    // Only get current month's plants
     const activePlants = await prisma.userPlant.findMany({
-      where: { userId },
+      where: { 
+        userId,
+        monthlyPlant: {
+          month: currentMonth,
+          year: currentYear
+        }
+      },
       include: { monthlyPlant: true },
       orderBy: { updatedAt: 'desc' }
     });
