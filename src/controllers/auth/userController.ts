@@ -1,4 +1,4 @@
-import prisma from '@/config/db';
+import prisma, { badgeSelect, gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 
@@ -54,7 +54,14 @@ export async function autoUpdateAllUserPlants(userId: string) {
           year: currentYear
         }
       },
-      include: { monthlyPlant: true },
+      select: {
+        id: true,
+        stage: true,
+        harvestCount: true,
+        monthlyPlant: {
+          select: monthlyPlantSelect
+        }
+      },
       orderBy: { updatedAt: 'desc' }
     });
 
@@ -197,7 +204,13 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
       // User's badges
       prisma.userBadge.findMany({
         where: { userId },
-        include: { badge: true },
+        select: {
+          id: true,
+          awardedAt: true,
+          badge: {
+            select: badgeSelect
+          }
+        },
         orderBy: { awardedAt: 'desc' }
       }),
       // User's equipped items (background and pot)
@@ -206,8 +219,13 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
           userId,
           equipped: true
         },
-        include: { 
-          item: true 
+        select: {
+          id: true,
+          equipped: true,
+          acquiredAt: true,
+          item: {
+            select: gardenItemSelect
+          }
         }
       })
     ]);
@@ -281,8 +299,13 @@ export const createUserPlant = async (req: AuthRequest, res: Response) => {
         monthlyPlantId: parseInt(monthlyPlantId),
         stage: 'SEED'
       },
-      include: {
-        monthlyPlant: true
+      select: {
+        id: true,
+        stage: true,
+        harvestCount: true,
+        monthlyPlant: {
+          select: monthlyPlantSelect
+        }
       }
     });
     
@@ -300,6 +323,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
     const currentYear = currentDate.getFullYear();
     
     const monthlyPlant = await prisma.monthlyPlant.findFirst({
+      select: monthlyPlantSelect,
       where: {
         month: currentMonth,
         year: currentYear

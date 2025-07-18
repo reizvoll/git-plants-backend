@@ -1,4 +1,4 @@
-import prisma from '@/config/db';
+import prisma, { gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Request, Response } from 'express';
 
@@ -8,6 +8,7 @@ import { Request, Response } from 'express';
 export const getGardenItems = async (req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.gardenItem.findMany({
+      select: gardenItemSelect,
       orderBy: { category: 'asc' }
     });
     res.json(items);
@@ -20,6 +21,7 @@ export const getGardenItems = async (req: AuthRequest, res: Response) => {
 export const getGardenItemById = async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.gardenItem.findUnique({
+      select: gardenItemSelect,
       where: { id: parseInt(req.params.id) }
     });
     
@@ -214,6 +216,7 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
     }
     
     const monthlyPlant = await prisma.monthlyPlant.findFirst({
+      select: monthlyPlantSelect,
       where: whereClause
     });
     
