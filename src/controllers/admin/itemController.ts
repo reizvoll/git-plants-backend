@@ -87,6 +87,18 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const deleteGardenItem = async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.gardenItem.delete({
+      where: { id: parseInt(req.params.id) }
+    });
+    res.status(200).json({ message: 'Item deleted successfully' });
+  } catch (error) {
+    console.error('Garden item deletion error:', error);
+    res.status(500).json({ message: 'Error deleting item' });
+  }
+};
+
 // for badge
 export const getBadges = async (req: AuthRequest, res: Response) => {
   try {
