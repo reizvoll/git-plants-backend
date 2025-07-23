@@ -1,5 +1,5 @@
 import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAdminUsers } from '@/controllers/admin/adminController';
-import { createBadge, createGardenItem, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
+import { createBadge, createGardenItem, deleteGardenItem, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
 import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
 import { createUpdateNote, deleteUpdateNote, getUpdateNoteById, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
 import { getBadges, getGardenItemById, getGardenItems, getMonthlyPlants } from '@/controllers/item/gardenController';
@@ -32,6 +32,7 @@ router.get('/items', getGardenItems);
 router.get('/items/:id', getGardenItemById);
 router.post('/items', createGardenItem);
 router.put('/items/:id', updateGardenItem);
+router.delete('/items/:id', deleteGardenItem);
 
 // BADGE MANAGEMENT
 router.get('/badges', getBadges);
