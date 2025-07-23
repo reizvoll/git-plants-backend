@@ -2,7 +2,7 @@ import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAd
 import { createBadge, createGardenItem, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
 import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
 import { createUpdateNote, deleteUpdateNote, getUpdateNoteById, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
-import { getBadges, getGardenItems, getMonthlyPlants } from '@/controllers/item/gardenController';
+import { getBadges, getGardenItemById, getGardenItems, getMonthlyPlants } from '@/controllers/item/gardenController';
 import { adminAuth, logout } from '@/middlewares/authMiddleware';
 import express from 'express';
 
@@ -29,6 +29,7 @@ router.delete('/monthly-plants/:id', deleteMonthlyPlant);
 
 // GARDEN ITEM MANAGEMENT
 router.get('/items', getGardenItems);
+router.get('/items/:id', getGardenItemById);
 router.post('/items', createGardenItem);
 router.put('/items/:id', updateGardenItem);
 
