@@ -1,5 +1,5 @@
 import { upload } from '@/controllers/upload/uploadController';
-import { uploadPlantImage, uploadCropImage } from '@/controllers/upload/plantUploadController';
+import { uploadPlantImage } from '@/controllers/upload/plantUploadController';
 import { uploadBackgroundImage, uploadPotImage } from '@/controllers/upload/gardenItemUploadController';
 import { uploadBadgeImage } from '@/controllers/upload/badgeUploadController';
 import { uploadUpdateNoteImage } from '@/controllers/upload/updateNoteUploadController';
@@ -21,9 +21,6 @@ router.post('/plants', upload.fields([
   { name: 'mature', maxCount: 1 },
   { name: 'harvest', maxCount: 1 }
 ]), uploadPlantImage);
-
-// upload crop image
-router.post('/crops', upload.single('image'), uploadCropImage);
 
 // upload background image
 router.post('/backgrounds', upload.fields([
