@@ -14,6 +14,7 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ message: 'Main image and icon image are required' });
     }
 
+    const name = req.body.name || files.mainImage[0].originalname;
     const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
     const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
     const mode = req.body.mode || 'DEFAULT';
@@ -43,7 +44,7 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
-        name: mainFilename,
+        name: name,
         category: 'background',
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
@@ -75,6 +76,7 @@ export const uploadPotImage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Main image and icon image are required' });
     }
 
+    const name = req.body.name || files.mainImage[0].originalname;
     const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
     const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
 
@@ -98,7 +100,7 @@ export const uploadPotImage = async (req: AuthRequest, res: Response) => {
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
-        name: mainFilename,
+        name: name,
         category: 'pot',
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
