@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { Response } from 'express';
 import { AuthRequest } from '@/types/auth';
 import { PLANT_STAGES, uploadToCloudinary } from './uploadController';
-
 
 // upload plant images
 export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
@@ -76,15 +74,3 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Image upload failed' });
   }
 };
-
-// upload crop image - 이 함수는 이제 사용하지 않을 예정이지만 호환성을 위해 유지
-export const uploadCropImage = async (req: AuthRequest, res: Response) => {
-  try {
-    return res.status(400).json({ 
-      message: 'This endpoint is deprecated. Please use MonthlyPlant creation instead.' 
-    });
-  } catch (error) {
-    console.error('Plant image upload error:', error);
-    res.status(500).json({ message: 'Image upload failed' });
-  }
-}; 

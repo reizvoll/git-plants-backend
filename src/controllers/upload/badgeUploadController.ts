@@ -1,9 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { Response } from 'express';
 import { AuthRequest } from '@/types/auth';
 import { uploadToCloudinary } from './uploadController';
-
-const prisma = new PrismaClient();
 
 // upload badge image
 export const uploadBadgeImage = async (req: AuthRequest, res: Response) => {
