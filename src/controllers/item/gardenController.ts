@@ -138,30 +138,60 @@ export const equipItem = async (req: AuthRequest, res: Response) => {
     if (!userItem) {
       return res.status(404).json({ message: 'User item not found' });
     }
-    
+
+    const changes = []; // tracking changes
+
     // If equipping, unequip any other items in the same category
     if (equipped) {
-      await prisma.userItem.updateMany({
+      // find items to unequip first
+      const itemsToUnequip = await prisma.userItem.findMany({
         where: {
           userId: req.user!.id,
           item: {
             category: userItem.item.category
           },
-          equipped: true
+          equipped: true,
+          id: { not: req.params.id } // except current item
         },
-        data: { equipped: false }
+        select: { id: true }
       });
+
+      // add items to unequip to changes
+      itemsToUnequip.forEach(item => {
+        changes.push({ userItemId: item.id, equipped: false });
+      });
+
+      // actually unequip
+      if (itemsToUnequip.length > 0) {
+        await prisma.userItem.updateMany({
+          where: {
+            userId: req.user!.id,
+            item: {
+              category: userItem.item.category
+            },
+            equipped: true,
+            id: { not: req.params.id }
+          },
+          data: { equipped: false }
+        });
+      }
     }
-    
+
     // Update the equipped status
-    const updatedUserItem = await prisma.userItem.update({
+    await prisma.userItem.update({
       where: { id: req.params.id },
-      data: { equipped },
-      include: { item: true }
+      data: { equipped }
     });
-    
-    res.json(updatedUserItem);
+
+    // add current item to changes
+    changes.push({ userItemId: req.params.id, equipped });
+
+    res.json({
+      changes, // only return changed items
+      category: userItem.item.category
+    });
   } catch (error) {
+    console.error('Error updating user item:', error);
     res.status(500).json({ message: 'Error updating user item' });
   }
 };

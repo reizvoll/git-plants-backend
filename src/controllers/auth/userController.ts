@@ -187,7 +187,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     const isAdmin = req.isAdmin;
 
     // Get all user information in parallel
-    const [userInfo, userSeed, userBadges, equippedItems] = await Promise.all([
+    const [userInfo, userSeed, userBadges, allUserItems, equippedItems] = await Promise.all([
       // Basic user info
       prisma.user.findUnique({
         where: { id: userId },
@@ -213,7 +213,20 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         },
         orderBy: { awardedAt: 'desc' }
       }),
-      // User's equipped items (background and pot)
+      // All user items
+      prisma.userItem.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          equipped: true,
+          acquiredAt: true,
+          item: {
+            select: gardenItemSelect
+          }
+        },
+        orderBy: { acquiredAt: 'desc' }
+      }),
+      // User's equipped items only
       prisma.userItem.findMany({
         where: { 
           userId,
@@ -254,6 +267,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
       },
       seedCount: userSeed?.count || 0,
       badges: userBadges,
+      items: allUserItems, // 모든 아이템들
       equipped: {
         backgrounds: equippedBackgrounds,
         pots: equippedPots
