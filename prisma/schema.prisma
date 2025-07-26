@@ -17,6 +17,7 @@ model User {
   updatedAt        DateTime         @updatedAt
   githubActivities GitHubActivity[]
   userPlants       UserPlant[]
+  userCrops        UserCrop[]
   seeds            Seed?
   refreshTokens    RefreshToken[]
   superUser        SuperUser?
@@ -115,7 +116,8 @@ model MonthlyPlant {
   name        String
   description String
   imageUrls   String[]
-  iconUrl     String?
+  iconUrl     String
+  cropImageUrl String
   month       Int
   year        Int
   createdAt   DateTime   @default(now())
@@ -124,8 +126,25 @@ model MonthlyPlant {
   id          Int        @id @default(autoincrement())
   updatedBy   SuperUser? @relation("MonthlyPlantUpdatedBy", fields: [updatedById], references: [id])
   userPlants  UserPlant[]
+  userCrops   UserCrop[]
 
   @@unique([month, year])
+}
+
+model UserCrop {
+  id              String   @id @default(cuid())
+  userId          String
+  monthlyPlantId  Int      // MonthlyPlant 직접 참조
+  quantity        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyPlant    MonthlyPlant @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, monthlyPlantId])  // 한 사용자당 같은 MonthlyPlant는 하나의 작물만
+  @@index([userId])
+  @@index([monthlyPlantId])
 }
 
 model SuperUser {
