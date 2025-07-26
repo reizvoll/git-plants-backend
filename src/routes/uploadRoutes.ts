@@ -15,11 +15,12 @@ router.use(adminAuth);
 router.post('/plants', upload.fields([
   { name: 'mainImage', maxCount: 1 },
   { name: 'iconImage', maxCount: 1 },
+  { name: 'cropImage', maxCount: 1 },
   { name: 'seed', maxCount: 1 },
   { name: 'sprout', maxCount: 1 },
   { name: 'growing', maxCount: 1 },
   { name: 'mature', maxCount: 1 },
-  { name: 'harvest', maxCount: 1 }
+  { name: 'harvest', maxCount: 1 },
 ]), uploadPlantImage);
 
 // upload background image
