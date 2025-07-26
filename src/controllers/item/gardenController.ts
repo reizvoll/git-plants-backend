@@ -277,7 +277,9 @@ export const getCurrentUpdate = async (req: Request, res: Response) => {
         isActive: true
       },
       include: {
-        gardenItems: true
+        gardenItems: {
+          select: gardenItemSelect
+        }
       }
     });
     
@@ -324,7 +326,9 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
         isActive: true
       },
       include: {
-        gardenItems: true
+        gardenItems: {
+          select: gardenItemSelect
+        }
       }
     });
     
@@ -357,7 +361,9 @@ export const getUpdateHistory = async (req: AuthRequest, res: Response) => {
         isActive: true
       },
       include: {
-        gardenItems: true
+        gardenItems: {
+          select: gardenItemSelect
+        }
       },
       orderBy: [
         { year: 'desc' },
