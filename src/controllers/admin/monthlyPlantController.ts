@@ -34,7 +34,7 @@ export const getMonthlyPlantById = async (req: AuthRequest, res: Response) => {
 
 export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, name, description, imageUrls, iconUrl, month, year } = req.body;
+    const { title, name, description, imageUrls, iconUrl, cropImageUrl, month, year } = req.body;
     
     if (!title || !name || !description || !imageUrls || !month || !year) {
       return res.status(400).json({ message: 'Title, name, description, imageUrls, month, and year are required' });
@@ -67,6 +67,7 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
         description,
         imageUrls,
         iconUrl,
+        cropImageUrl,
         month: parseInt(month),
         year: parseInt(year),
         updatedById: req.superUser!.id
@@ -82,7 +83,7 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
 
 export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, name, description, imageUrls, iconUrl } = req.body;
+    const { title, name, description,iconUrl, cropImageUrl, imageUrls } = req.body;
     
     // SuperUser validation is already done in adminAuth middleware
     
@@ -95,6 +96,7 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
     if (name) updateData.name = name;
     if (description) updateData.description = description;
     if (iconUrl) updateData.iconUrl = iconUrl;
+    if (cropImageUrl) updateData.cropImageUrl = cropImageUrl;
     if (imageUrls) {
       if (!Array.isArray(imageUrls) || imageUrls.length !== 5) {
         return res.status(400).json({ 

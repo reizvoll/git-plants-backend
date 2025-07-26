@@ -16,6 +16,10 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Icon image is required' });
     }
     
+    if (!files.cropImage?.[0]) {
+      return res.status(400).json({ message: 'Crop image is required' });
+    }
+    
     // Check if all growth stage images are provided
     const missingStages = PLANT_STAGES.filter((stage: string) => !files[stage]?.[0]);
     if (missingStages.length > 0) {
@@ -40,6 +44,15 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
       'git-plants(plants)',
       'images/plants',
       iconFilename
+    );
+
+    // upload crop image
+    const cropFilename = req.body.cropFilename || files.cropImage[0].originalname;
+    const cropResult = await uploadToCloudinary(
+      files.cropImage[0],
+      'git-plants(crops)',
+      'images/crops',
+      cropFilename
     );
     
     // Parallel upload for growth stage images
@@ -66,7 +79,8 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
         iconImage: iconResult,
         growthImages: growthImageUrls,
         imageUrls: growthImageUrls, // createMonthlyPlant에서 사용할 수 있도록
-        iconUrl: iconResult.secure_url // createMonthlyPlant에서 사용할 수 있도록
+        iconUrl: iconResult.secure_url, // createMonthlyPlant에서 사용할 수 있도록
+        cropImageUrl: cropResult.secure_url
       } 
     });
   } catch (error) {
