@@ -157,8 +157,8 @@ async function addCropToUser(plant: any, userId: string) {
       data: {
         name: monthlyPlant.name,
         category: 'crops',
-        imageUrl: monthlyPlant.imageUrls[4],
-        iconUrl: monthlyPlant.iconUrl || monthlyPlant.imageUrls[4],
+        imageUrl: monthlyPlant.cropImageUrl, // Use cropImageUrl instead of imageUrls[4]
+        iconUrl: monthlyPlant.iconUrl || monthlyPlant.cropImageUrl,
         price: 0,
         updatedById: null
       }
@@ -174,7 +174,7 @@ async function addCropToUser(plant: any, userId: string) {
 
 // Helper function to get current stage image URL
 function getCurrentStageImageUrl(imageUrls: string[], stage: string): string {
-  const stageIndex = ['SEED', 'SPROUT', 'GROWING', 'MATURE', 'HARVEST'].indexOf(stage);
+  const stageIndex = ['SEED', 'SPROUT', 'GROWING', 'MATURE'].indexOf(stage);
   return imageUrls[stageIndex] || imageUrls[0];
 }
 

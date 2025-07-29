@@ -40,10 +40,10 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Title, name, description, imageUrls, month, and year are required' });
     }
     
-    // Validate imageUrls array (should have 5 images for all growth stages)
-    if (!Array.isArray(imageUrls) || imageUrls.length !== 5) {
+    // Validate imageUrls array (should have 4 images for growth stages: SEED, SPROUT, GROWING, MATURE)
+    if (!Array.isArray(imageUrls) || imageUrls.length !== 4) {
       return res.status(400).json({ 
-        message: 'imageUrls array with exactly 5 images is required (SEED, SPROUT, GROWING, MATURE, HARVEST)' 
+        message: 'imageUrls array with exactly 4 images is required (SEED, SPROUT, GROWING, MATURE)' 
       });
     }
     
@@ -98,9 +98,9 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
     if (iconUrl) updateData.iconUrl = iconUrl;
     if (cropImageUrl) updateData.cropImageUrl = cropImageUrl;
     if (imageUrls) {
-      if (!Array.isArray(imageUrls) || imageUrls.length !== 5) {
+      if (!Array.isArray(imageUrls) || imageUrls.length !== 4) {
         return res.status(400).json({ 
-          message: 'imageUrls array with exactly 5 images is required (SEED, SPROUT, GROWING, MATURE, HARVEST)' 
+          message: 'imageUrls array with exactly 4 images is required (SEED, SPROUT, GROWING, MATURE)' 
         });
       }
       updateData.imageUrls = imageUrls;
