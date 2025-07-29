@@ -29,4 +29,4 @@ export const uploadToCloudinary = async (
 };
 
 // Constants for plant stages
-export const PLANT_STAGES = ['seed', 'sprout', 'growing', 'mature', 'harvest'] as const;
+export const PLANT_STAGES = ['seed', 'sprout', 'growing', 'mature'] as const;
