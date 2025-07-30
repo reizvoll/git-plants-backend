@@ -71,7 +71,7 @@ export async function autoUpdateAllUserPlants(userId: string) {
       // How many times should this plant be harvested?
       const targetHarvestCount = Math.floor(monthlyContributions / 70);
       
-      // get initial crops ( only for newbies )
+      // get initial crops
       if (targetHarvestCount > 0 && plant.harvestCount > 0) {
         const existingUserCrop = await prisma.userCrop.findUnique({
           where: {
@@ -82,7 +82,7 @@ export async function autoUpdateAllUserPlants(userId: string) {
           }
         });
 
-        // give initial crops only for newbies
+        // give initial crops
         if (!existingUserCrop) {
           await prisma.userCrop.create({
             data: {
@@ -221,8 +221,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const isAdmin = req.isAdmin;
 
-    // Get all user information in parallel
-    const [userInfo, userSeed, userBadges, allUserItems, equippedItems, userCrops] = await Promise.all([
+    // Get basic user information first (crops 제외)
+    const [userInfo, userSeed, userBadges, allUserItems, equippedItems] = await Promise.all([
       // Basic user info
       prisma.user.findUnique({
         where: { id: userId },
@@ -275,25 +275,6 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
             select: gardenItemSelect
           }
         }
-      }),
-      // User's crops for selling
-      prisma.userCrop.findMany({
-        where: { userId },
-        select: {
-          id: true,
-          quantity: true,
-          createdAt: true,
-          updatedAt: true,
-          monthlyPlant: {
-            select: {
-              name: true,
-              cropImageUrl: true,
-              month: true,
-              year: true
-            }
-          }
-        },
-        orderBy: { updatedAt: 'desc' }
       })
     ]);
 
@@ -301,8 +282,28 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // use autoUpdateAllUserPlants function
+    // Update plants first
     const plantsWithContributions = await autoUpdateAllUserPlants(userId);
+
+    // get crops
+    const userCrops = await prisma.userCrop.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        quantity: true,
+        createdAt: true,
+        updatedAt: true,
+        monthlyPlant: {
+          select: {
+            name: true,
+            cropImageUrl: true,
+            month: true,
+            year: true
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
 
     // Separate equipped items by category
     const equippedBackgrounds = equippedItems.filter(item => 
