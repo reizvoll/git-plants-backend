@@ -7,7 +7,8 @@ import {
     getUserBadges,
     getUserItems,
     getUserCrops,
-    purchaseItem
+    purchaseItem,
+    sellCrops
 } from '@/controllers/item/gardenController';
 import { clientAuth } from '@/middlewares/authMiddleware';
 import express from 'express';
@@ -32,6 +33,9 @@ router.get('/user-items', getUserItems);
 
 // Get user's crops specifically
 router.get('/user-crops', getUserCrops);
+
+// Sell crops for seeds
+router.post('/user-crops/sell', sellCrops);
 
 // Purchase item for user
 router.post('/user-items', purchaseItem);

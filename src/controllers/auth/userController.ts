@@ -71,6 +71,30 @@ export async function autoUpdateAllUserPlants(userId: string) {
       // How many times should this plant be harvested?
       const targetHarvestCount = Math.floor(monthlyContributions / 70);
       
+      // get initial crops ( only for newbies )
+      if (targetHarvestCount > 0 && plant.harvestCount > 0) {
+        const existingUserCrop = await prisma.userCrop.findUnique({
+          where: {
+            userId_monthlyPlantId: {
+              userId,
+              monthlyPlantId: plant.monthlyPlant.id
+            }
+          }
+        });
+
+        // give initial crops only for newbies
+        if (!existingUserCrop) {
+          await prisma.userCrop.create({
+            data: {
+              userId,
+              monthlyPlantId: plant.monthlyPlant.id,
+              quantity: plant.harvestCount
+            }
+          });
+        }
+        // don't touch if already exists (don't restore sold crops)
+      }
+      
       // Process harvests if needed
       if (targetHarvestCount > plant.harvestCount) {
         const harvestsNeeded = targetHarvestCount - plant.harvestCount;
@@ -90,9 +114,10 @@ export async function autoUpdateAllUserPlants(userId: string) {
           where: { id: plant.id },
           data: { 
             harvestCount: targetHarvestCount,
-            stage: determineGrowthStage(currentContributions)
+            stage: determineGrowthStage(currentContributions),
+            harvestedAt: new Date() // record harvest time
           },
-          // include: { monthlyPlant: true }
+          include: { monthlyPlant: true } // uncomment
         });
         
         updatedPlants.push({
@@ -114,7 +139,7 @@ export async function autoUpdateAllUserPlants(userId: string) {
           const updatedPlant = await prisma.userPlant.update({
             where: { id: plant.id },
             data: { stage: newStage },
-            // include: { monthlyPlant: true }
+            include: { monthlyPlant: true }
           });
           
           updatedPlants.push({
@@ -122,10 +147,8 @@ export async function autoUpdateAllUserPlants(userId: string) {
             currentContributions,
             totalContributions: monthlyContributions,
             stageUpdated: true,
-            // currentImageUrl: getCurrentStageImageUrl(updatedPlant.monthlyPlant.imageUrls, newStage)
           });
         } else {
-          // No changes needed
           updatedPlants.push({
             ...plant,
             currentContributions,
@@ -147,29 +170,41 @@ export async function autoUpdateAllUserPlants(userId: string) {
 async function addCropToUser(plant: any, userId: string) {
   const monthlyPlant = plant.monthlyPlant;
   
-  // Find or create crop item
-  let cropItem = await prisma.gardenItem.findFirst({
-    where: { name: monthlyPlant.name, category: 'crops' }
-  });
-  
-  if (!cropItem) {
-    cropItem = await prisma.gardenItem.create({
-      data: {
-        name: monthlyPlant.name,
-        category: 'crops',
-        imageUrl: monthlyPlant.cropImageUrl, // Use cropImageUrl instead of imageUrls[4]
-        iconUrl: monthlyPlant.iconUrl || monthlyPlant.cropImageUrl,
-        price: 0,
-        updatedById: null
-      }
-    });
+  // If there is no image, don't create a crop
+  if (!monthlyPlant.cropImageUrl || !monthlyPlant.iconUrl) {
+    console.warn(`Skipping crop creation for ${monthlyPlant.name} - missing image URLs`);
+    return null;
   }
-  
-  // Add to user's inventory
-  return await prisma.userItem.create({
-    data: { userId, itemId: cropItem.id, equipped: false },
-    include: { item: true }
+
+  // increase UserCrop quantity (create if not exists)
+  const userCrop = await prisma.userCrop.upsert({
+    where: {
+      userId_monthlyPlantId: {
+        userId,
+        monthlyPlantId: monthlyPlant.id
+      }
+    },
+    update: {
+      quantity: { increment: 1 }
+    },
+    create: {
+      userId,
+      monthlyPlantId: monthlyPlant.id,
+      quantity: 1
+    },
+    include: { 
+      monthlyPlant: {
+        select: {
+          id: true,
+          name: true,
+          cropImageUrl: true,
+          iconUrl: true
+        }
+      }
+    }
   });
+  
+  return userCrop;
 }
 
 // Helper function to get current stage image URL
@@ -187,7 +222,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     const isAdmin = req.isAdmin;
 
     // Get all user information in parallel
-    const [userInfo, userSeed, userBadges, allUserItems, equippedItems] = await Promise.all([
+    const [userInfo, userSeed, userBadges, allUserItems, equippedItems, userCrops] = await Promise.all([
       // Basic user info
       prisma.user.findUnique({
         where: { id: userId },
@@ -240,6 +275,25 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
             select: gardenItemSelect
           }
         }
+      }),
+      // User's crops for selling
+      prisma.userCrop.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          quantity: true,
+          createdAt: true,
+          updatedAt: true,
+          monthlyPlant: {
+            select: {
+              name: true,
+              cropImageUrl: true,
+              month: true,
+              year: true
+            }
+          }
+        },
+        orderBy: { updatedAt: 'desc' }
       })
     ]);
 
@@ -272,7 +326,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         backgrounds: equippedBackgrounds,
         pots: equippedPots
       },
-      plants: plantsWithContributions
+      plants: plantsWithContributions,
+      crops: userCrops
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);
