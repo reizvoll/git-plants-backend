@@ -63,20 +63,122 @@ export const getUserItems = async (req: AuthRequest, res: Response) => {
 // Get user's crops specifically
 export const getUserCrops = async (req: AuthRequest, res: Response) => {
   try {
-    const userCrops = await prisma.userItem.findMany({
+    const userCrops = await prisma.userCrop.findMany({
       where: { 
         userId: req.user!.id,
-        item: {
-          category: 'crops'
+        quantity: { gt: 0 } // only crops with quantity > 0
+      },
+      select: {
+        id: true,
+        quantity: true,
+        createdAt: true,
+        updatedAt: true,
+        monthlyPlant: {
+          select: {
+            name: true,
+            cropImageUrl: true,
+            month: true,
+            year: true
+          }
         }
       },
-      include: { item: true },
-      orderBy: { acquiredAt: 'desc' }
+      orderBy: { updatedAt: 'desc' }
     });
     
     res.json(userCrops);
   } catch (error) {
+    console.error('Error fetching user crops:', error);
     res.status(500).json({ message: 'Error fetching user crops' });
+  }
+};
+
+// Sell crops for seeds
+export const sellCrops = async (req: AuthRequest, res: Response) => {
+  try {
+    const { cropIds, totalPrice } = req.body;
+    const userId = req.user!.id;
+    
+    if (!cropIds || !Array.isArray(cropIds) || cropIds.length === 0) {
+      return res.status(400).json({ message: 'Valid crop IDs array is required' });
+    }
+    
+    if (!totalPrice || totalPrice <= 0) {
+      return res.status(400).json({ message: 'Valid total price is required' });
+    }
+
+    // Count occurrences of each UserCrop.id
+    const cropCounts: { [key: string]: number } = {};
+    for (const cropId of cropIds) {
+      cropCounts[cropId] = (cropCounts[cropId] || 0) + 1;
+    }
+
+    // Transaction to sell crops and add seeds
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Check if user has enough crops and get UserCrop records
+      for (const [userCropId, requiredCount] of Object.entries(cropCounts)) {
+        const userCrop = await tx.userCrop.findUnique({
+          where: { id: userCropId }
+        });
+        
+        if (!userCrop) {
+          throw new Error(`Crop not found: ${userCropId}`);
+        }
+        
+        if (userCrop.userId !== userId) {
+          throw new Error(`Unauthorized crop access: ${userCropId}`);
+        }
+        
+        if (userCrop.quantity < requiredCount) {
+          throw new Error(`Not enough crops: ${userCropId}`);
+        }
+      }
+
+      // 2. Decrease crop quantities
+      for (const [userCropId, count] of Object.entries(cropCounts)) {
+        await tx.userCrop.update({
+          where: { id: userCropId },
+          data: {
+            quantity: { decrement: count }
+          }
+        });
+      }
+
+      // 3. Add seeds to user
+      const updatedSeed = await tx.seed.upsert({
+        where: { userId },
+        update: {
+          count: { increment: totalPrice }
+        },
+        create: {
+          userId,
+          count: totalPrice
+        }
+      });
+
+      return { updatedSeed, soldCropsCount: cropIds.length };
+    });
+
+    res.json({
+      seeds: result.updatedSeed,
+      soldCropsCount: result.soldCropsCount
+    });
+    
+  } catch (error: any) {
+    console.error('Error selling crops:', error);
+    
+    if (error.message.includes('Not enough crops')) {
+      return res.status(400).json({ message: 'Not enough crops to sell' });
+    }
+    
+    if (error.message.includes('Crop not found')) {
+      return res.status(404).json({ message: 'Crop not found' });
+    }
+    
+    if (error.message.includes('Unauthorized')) {
+      return res.status(403).json({ message: 'Unauthorized crop access' });
+    }
+    
+    res.status(500).json({ message: 'Error selling crops' });
   }
 };
 
