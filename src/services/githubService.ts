@@ -1,7 +1,6 @@
-
 import axios, { AxiosError } from 'axios';
 import prisma from '@/config/db';
-import { GitHubActivity, GitHubActivityInput, GitHubGraphQLResponse, ContributionTimelineEntry } from '@/types/github';
+import { GitHubActivity,GitHubGraphQLResponse, ContributionTimelineEntry } from '@/types/github';
 import { autoUpdateAllUserPlants } from '@/controllers/auth/userController';
 
 // Save auto sync users
@@ -64,39 +63,50 @@ export const fetchUserActivities = async (userId: string, username: string): Pro
       throw new Error('User data not found');
     }
 
-    const activities: GitHubActivityInput[] = [];
+    // Aggregate contributions by month
+    const monthlyContributions = new Map<string, number>();
 
-    // Transform Contribution data only
+    // Transform daily contributions into monthly aggregates
     userData.contributionsCollection.contributionCalendar.weeks.forEach((week) => {
       week.contributionDays.forEach((day) => {
         if (day.contributionCount > 0) {
-          activities.push({
-            userId,
-            date: new Date(day.date),
-            count: day.contributionCount,
-          });
+          const date = new Date(day.date);
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const key = `${year}-${month}`;
+
+          const currentCount = monthlyContributions.get(key) || 0;
+          monthlyContributions.set(key, currentCount + day.contributionCount);
         }
       });
     });
 
-    // Upsert activities (prevent duplicates by date)
-    for (const activity of activities) {
+    // Upsert monthly activities
+    for (const [monthKey, totalCount] of monthlyContributions) {
+      const [year, month] = monthKey.split('-').map(Number);
+
       await prisma.gitHubActivity.upsert({
         where: {
-          userId_date: {
-            userId: activity.userId,
-            date: activity.date
+          userId_month_year: {
+            userId,
+            month,
+            year
           }
         },
         update: {
-          count: activity.count
+          count: totalCount
         },
-        create: activity
+        create: {
+          userId,
+          month,
+          year,
+          count: totalCount
+        }
       });
     }
 
     // Auto-update plant growth if there are new activities (통합 함수 사용)
-    if (activities.length > 0) {
+    if (monthlyContributions.size > 0) {
       try {
         await autoUpdateAllUserPlants(userId);
         console.log(`Plant growth updated for user: ${username}`);
@@ -108,7 +118,7 @@ export const fetchUserActivities = async (userId: string, username: string): Pro
     // Return saved activities
     const savedActivities = await prisma.gitHubActivity.findMany({
       where: { userId },
-      orderBy: { date: 'desc' }
+      orderBy: [{ year: 'desc' }, { month: 'desc' }]
     });
 
     return savedActivities;
@@ -146,7 +156,7 @@ export const setupAutoSync = async (userId: string): Promise<boolean> => {
 
     autoSyncUsers.set(userId, intervalId);
     console.log(`Auto sync setup for user: ${user.username}`);
-    
+
     return true;
   } catch (error) {
     console.error('Error setting up auto sync:', error);
@@ -237,8 +247,8 @@ export const fetchPublicContributionCalendarByUsername = async (
         query: PUBLIC_CONTRIBUTION_QUERY,
         variables: {
           username,
-          from: fromDate?.toISOString(), 
-          to: toDate?.toISOString() 
+          from: fromDate?.toISOString(),
+          to: toDate?.toISOString()
         },
       },
       {
