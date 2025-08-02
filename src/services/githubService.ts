@@ -2,6 +2,8 @@ import axios, { AxiosError } from 'axios';
 import prisma from '@/config/db';
 import { GitHubActivity,GitHubGraphQLResponse, ContributionTimelineEntry } from '@/types/github';
 import { autoUpdateAllUserPlants } from '@/controllers/auth/userController';
+import { GitHubCacheService } from '@/services/cacheService';
+import { REDIS_CONFIG } from '@/config/redis';
 
 // Save auto sync users
 const autoSyncUsers = new Map<string, NodeJS.Timeout>();
@@ -103,9 +105,15 @@ export const fetchUserActivities = async (userId: string, username: string): Pro
           count: totalCount
         }
       });
+
+      // update cache
+      await GitHubCacheService.setMonthlyContribution(userId, year, month, totalCount);
     }
 
-    // Auto-update plant growth if there are new activities (통합 함수 사용)
+    // update current month cache
+    await GitHubCacheService.invalidateCurrentMonth(userId);
+
+    // Auto-update plant growth if there are new activities
     if (monthlyContributions.size > 0) {
       try {
         await autoUpdateAllUserPlants(userId);
@@ -152,7 +160,7 @@ export const setupAutoSync = async (userId: string): Promise<boolean> => {
       } catch (error) {
         console.error(`Auto sync error for user ${user.username}:`, error);
       }
-    }, 12 * 60 * 60 * 1000); // 12 hours
+    }, REDIS_CONFIG.GITHUB_SYNC_INTERVAL_MS); // 환경변수로 설정 가능
 
     autoSyncUsers.set(userId, intervalId);
     console.log(`Auto sync setup for user: ${user.username}`);
