@@ -10,8 +10,7 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
         gardenItems: true
       },
       orderBy: [
-        { year: 'desc' },
-        { month: 'desc' }
+        { publishedAt: 'desc' }
       ]
     });
     res.json(updateNotes);
@@ -22,9 +21,32 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
 
 export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
   try {
-    const updateNote = await prisma.updateNote.findUnique({
-      where: { id: parseInt(req.params.id) }
-    });
+    let updateNote;
+    
+    // If id is "active", return the current active update note
+    if (req.params.id === 'active') {
+      updateNote = await prisma.updateNote.findFirst({
+        where: { 
+          isActive: true,
+          OR: [
+            { validUntil: null },
+            { validUntil: { gte: new Date() } }
+          ]
+        },
+        include: {
+          gardenItems: true
+        },
+        orderBy: { publishedAt: 'desc' }
+      });
+    } else {
+      updateNote = await prisma.updateNote.findUnique({
+        where: { id: parseInt(req.params.id) },
+        include: {
+          gardenItems: true
+        }
+      });
+    }
+    
     if (!updateNote) {
       return res.status(404).json({ message: 'Update note not found' });
     }
@@ -37,29 +59,21 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
 
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, month, year, gardenItemIds } = req.body;
+    const { title, description, imageUrl, validUntil, gardenItemIds } = req.body;
     
-    if (!title || !description || !imageUrl || !month || !year) {
+    if (!title || !description || !imageUrl) {
       return res.status(400).json({ 
-        message: 'Title, description, imageUrl, month, and year are required' 
+        message: 'Title, description, and imageUrl are required' 
       });
     }
     
     // SuperUser validation is already done in adminAuth middleware
     
-    // Check if update note already exists for this month/year
-    const existingUpdateNote = await prisma.updateNote.findFirst({
-      where: {
-        month: parseInt(month),
-        year: parseInt(year)
-      }
+    // disable past active update notes
+    await prisma.updateNote.updateMany({
+      where: { isActive: true },
+      data: { isActive: false }
     });
-    
-    if (existingUpdateNote) {
-      return res.status(409).json({ 
-        message: 'An update note already exists for this month and year' 
-      });
-    }
     
     // Create update note
     const updateNote = await prisma.updateNote.create({
@@ -67,8 +81,7 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
         title,
         description,
         imageUrl,
-        month: parseInt(month),
-        year: parseInt(year),
+        validUntil: validUntil ? new Date(validUntil) : undefined,
         updatedById: req.superUser!.id,
         gardenItems: gardenItemIds ? {
           connect: gardenItemIds.map((id: number) => ({ id }))
@@ -81,14 +94,13 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
     
     res.status(201).json(updateNote);
   } catch (error) {
-    console.error('Update note creation error:', error);
     res.status(500).json({ message: 'Error creating update note' });
   }
 };
 
 export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, isActive, gardenItemIds } = req.body;
+    const { title, description, imageUrl, isActive, validUntil, gardenItemIds } = req.body;
     
     // SuperUser validation is already done in adminAuth middleware
     
@@ -100,7 +112,21 @@ export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-    if (isActive !== undefined) updateData.isActive = isActive;
+    if (validUntil !== undefined) updateData.validUntil = validUntil ? new Date(validUntil) : null;
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+      
+      // if this note is activated, disable all other notes
+      if (isActive) {
+        await prisma.updateNote.updateMany({
+          where: { 
+            isActive: true,
+            id: { not: parseInt(req.params.id) }
+          },
+          data: { isActive: false }
+        });
+      }
+    }
     
     // Handle garden items relationship
     if (gardenItemIds !== undefined) {
