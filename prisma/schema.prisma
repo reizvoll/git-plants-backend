@@ -176,8 +176,8 @@ model UpdateNote {
   title       String
   description String
   imageUrl    String
-  month       Int
-  year        Int
+  publishedAt DateTime     @default(now())
+  validUntil  DateTime?
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -185,7 +185,8 @@ model UpdateNote {
   updatedBy   SuperUser?   @relation("UpdateNoteUpdatedBy", fields: [updatedById], references: [id])
   gardenItems GardenItem[] @relation("GardenItemToUpdateNote")
 
-  @@unique([month, year])
+  @@index([publishedAt])
+  @@index([isActive])
 }
 
 enum GrowthStage {

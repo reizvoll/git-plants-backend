@@ -364,25 +364,28 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
 
 // UPDATE NOTES
 
-// Get current month's update (plant + new items)
+// Get current active update (plant + new items)
 export const getCurrentUpdate = async (req: Request, res: Response) => {
   try {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
     
-    // Get current month's update note
+    // Get current active update note
     const updateNote = await prisma.updateNote.findFirst({
       where: {
-        month: currentMonth,
-        year: currentYear,
-        isActive: true
+        isActive: true,
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } }
+        ]
       },
       include: {
         gardenItems: {
           select: gardenItemSelect
         }
-      }
+      },
+      orderBy: { publishedAt: 'desc' }
     });
     
     // Get current month's plant
@@ -402,7 +405,8 @@ export const getCurrentUpdate = async (req: Request, res: Response) => {
         id: updateNote.id,
         title: updateNote.title,
         description: updateNote.description,
-        imageUrl: updateNote.imageUrl
+        imageUrl: updateNote.imageUrl,
+        publishedAt: updateNote.publishedAt
       } : null,
       newItems: updateNote?.gardenItems || []
     };
@@ -413,36 +417,35 @@ export const getCurrentUpdate = async (req: Request, res: Response) => {
   }
 };
 
-// Get current month's update note and new items only (for shop page)
+// Get current active update note and new items only (for shop page)
 export const getCurrentUpdateNote = async (req: Request, res: Response) => {
   try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    
-    // Get current month's update note
+    // Get current active update note
     const updateNote = await prisma.updateNote.findFirst({
       where: {
-        month: currentMonth,
-        year: currentYear,
-        isActive: true
+        isActive: true,
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } }
+        ]
       },
       include: {
         gardenItems: {
           select: gardenItemSelect
         }
-      }
+      },
+      orderBy: { publishedAt: 'desc' }
     });
     
     // Prepare response (only update note and new items, no monthly plant)
     const response = {
-      month: currentMonth,
-      year: currentYear,
       updateNote: updateNote ? {
         id: updateNote.id,
         title: updateNote.title,
         description: updateNote.description,
-        imageUrl: updateNote.imageUrl
+        imageUrl: updateNote.imageUrl,
+        publishedAt: updateNote.publishedAt,
+        validUntil: updateNote.validUntil
       } : null,
       newItems: updateNote?.gardenItems || []
     };
@@ -459,47 +462,32 @@ export const getUpdateHistory = async (req: AuthRequest, res: Response) => {
     const { limit = 10, offset = 0 } = req.query;
     
     const updateNotes = await prisma.updateNote.findMany({
-      where: {
-        isActive: true
-      },
       include: {
         gardenItems: {
           select: gardenItemSelect
         }
       },
       orderBy: [
-        { year: 'desc' },
-        { month: 'desc' }
+        { publishedAt: 'desc' }
       ],
       take: parseInt(limit as string),
       skip: parseInt(offset as string)
     });
     
-    // Format response with monthly plants and items
-    const formattedUpdates = await Promise.all(
-      updateNotes.map(async (updateNote) => {
-        const monthlyPlant = await prisma.monthlyPlant.findFirst({
-          where: {
-            month: updateNote.month,
-            year: updateNote.year
-          }
-        });
-        
-        return {
-          month: updateNote.month,
-          year: updateNote.year,
-          updateNote: {
-            id: updateNote.id,
-            title: updateNote.title,
-            description: updateNote.description,
-            imageUrl: updateNote.imageUrl,
-            createdAt: updateNote.createdAt
-          },
-          plant: monthlyPlant,
-          newItems: updateNote.gardenItems
-        };
-      })
-    );
+    // Format response
+    const formattedUpdates = updateNotes.map((updateNote) => ({
+      updateNote: {
+        id: updateNote.id,
+        title: updateNote.title,
+        description: updateNote.description,
+        imageUrl: updateNote.imageUrl,
+        publishedAt: updateNote.publishedAt,
+        validUntil: updateNote.validUntil,
+        isActive: updateNote.isActive,
+        createdAt: updateNote.createdAt
+      },
+      newItems: updateNote.gardenItems
+    }));
     
     res.json(formattedUpdates);
   } catch (error) {
