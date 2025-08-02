@@ -6,24 +6,19 @@ import { Response } from 'express';
 export async function calculateMonthlyContributions(userId: string): Promise<number> {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
+  const currentMonth = currentDate.getMonth() + 1;
   
-  // from the first day of the month to the last day of the month
-  const monthStart = new Date(currentYear, currentMonth, 1);
-  const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
-  
-  const contributions = await prisma.gitHubActivity.aggregate({
+  const contribution = await prisma.gitHubActivity.findUnique({
     where: {
-      userId,
-      date: { 
-        gte: monthStart,
-        lte: monthEnd
+      userId_month_year: {
+        userId,
+        month: currentMonth,
+        year: currentYear
       }
-    },
-    _sum: { count: true }
+    }
   });
   
-  return contributions._sum.count || 0;
+  return contribution?.count || 0; // 0 if no contribution
 }
 
 // set growth stage based on contributions
