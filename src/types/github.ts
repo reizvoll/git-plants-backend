@@ -1,7 +1,8 @@
 export interface GitHubActivity {
   id: string;
   userId: string;
-  date: Date;
+  month: number;
+  year: number;
   count: number;
 }
 
@@ -11,10 +12,8 @@ export type GitHubActivityInput = Omit<GitHubActivity, 'id'>;
 // ActivityFilter defines the filter criteria for querying GitHub activities
 export interface ActivityFilter {
   userId: string;
-  date?: {
-    gte?: Date;
-    lte?: Date;
-  };
+  month?: number;
+  year?: number;
 }
 
 // Simplified GitHubGraphQLResponse - only contributions
