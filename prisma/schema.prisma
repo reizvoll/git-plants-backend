@@ -176,7 +176,7 @@ model UpdateNote {
   title       String
   description String
   imageUrl    String
-  publishedAt DateTime     @default(now())
+  publishedAt DateTime
   validUntil  DateTime?
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
