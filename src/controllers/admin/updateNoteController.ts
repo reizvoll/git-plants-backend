@@ -5,7 +5,16 @@ import { Response } from 'express';
 // UPDATE NOTE MANAGEMENT
 export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
   try {
+    const now = new Date();
     const updateNotes = await prisma.updateNote.findMany({
+      where: {
+        publishedAt: { lte: now },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: now } }
+        ],
+        isActive: true
+      },
       include: {
         gardenItems: true
       },
@@ -22,6 +31,7 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
 export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
   try {
     let updateNote;
+    const now = new Date();
     
     // If id is "active", return the current active update note
     if (req.params.id === 'active') {
@@ -30,7 +40,7 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
           isActive: true,
           OR: [
             { validUntil: null },
-            { validUntil: { gte: new Date() } }
+            { validUntil: { gte: now } }
           ]
         },
         include: {
@@ -59,7 +69,7 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
 
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, validUntil, gardenItemIds } = req.body;
+    const { title, description, imageUrl, validUntil, gardenItemIds, publishedAt } = req.body;
     
     if (!title || !description || !imageUrl) {
       return res.status(400).json({ 
@@ -69,18 +79,29 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
     
     // SuperUser validation is already done in adminAuth middleware
     
+    // Validate publishedAt if provided
+    if (publishedAt) {
+      const publishDate = new Date(publishedAt);
+      if (isNaN(publishDate.getTime())) {
+        return res.status(400).json({ 
+          message: 'Invalid publishedAt date format' 
+        });
+      }
+    }
+    
     // disable past active update notes
     await prisma.updateNote.updateMany({
       where: { isActive: true },
       data: { isActive: false }
     });
     
-    // Create update note
+    // Create update note - publishedAt is required for scheduling
     const updateNote = await prisma.updateNote.create({
       data: {
         title,
         description,
         imageUrl,
+        publishedAt: publishedAt ? new Date(publishedAt) : new Date(), // Default to now if not provided
         validUntil: validUntil ? new Date(validUntil) : undefined,
         updatedById: req.superUser!.id,
         gardenItems: gardenItemIds ? {
@@ -94,13 +115,14 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
     
     res.status(201).json(updateNote);
   } catch (error) {
+    console.error('Create update note error:', error);
     res.status(500).json({ message: 'Error creating update note' });
   }
 };
 
 export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, isActive, validUntil, gardenItemIds } = req.body;
+    const { title, description, imageUrl, isActive, validUntil, publishedAt, gardenItemIds } = req.body;
     
     // SuperUser validation is already done in adminAuth middleware
     
@@ -112,6 +134,7 @@ export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    if (publishedAt !== undefined) updateData.publishedAt = publishedAt ? new Date(publishedAt) : null;
     if (validUntil !== undefined) updateData.validUntil = validUntil ? new Date(validUntil) : null;
     if (isActive !== undefined) {
       updateData.isActive = isActive;
