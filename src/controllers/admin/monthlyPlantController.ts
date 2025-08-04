@@ -34,10 +34,10 @@ export const getMonthlyPlantById = async (req: AuthRequest, res: Response) => {
 
 export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, name, description, imageUrls, iconUrl, cropImageUrl, month, year } = req.body;
+    const { title, name, description, mainImageUrl, imageUrls, iconUrl, cropImageUrl, month, year } = req.body;
     
-    if (!title || !name || !description || !imageUrls || !month || !year) {
-      return res.status(400).json({ message: 'Title, name, description, imageUrls, month, and year are required' });
+    if (!title || !name || !description || !mainImageUrl || !imageUrls || !month || !year) {
+      return res.status(400).json({ message: 'Title, name, description, mainImageUrl, imageUrls, month, and year are required' });
     }
     
     // Validate imageUrls array (should have 4 images for growth stages: SEED, SPROUT, GROWING, MATURE)
@@ -65,6 +65,7 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
         title,
         name,
         description,
+        mainImageUrl,
         imageUrls,
         iconUrl,
         cropImageUrl,
@@ -83,7 +84,7 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
 
 export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, name, description,iconUrl, cropImageUrl, imageUrls } = req.body;
+    const { title, name, description, mainImageUrl, iconUrl, cropImageUrl, imageUrls } = req.body;
     
     // SuperUser validation is already done in adminAuth middleware
     
@@ -95,6 +96,7 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
     if (title) updateData.title = title;
     if (name) updateData.name = name;
     if (description) updateData.description = description;
+    if (mainImageUrl) updateData.mainImageUrl = mainImageUrl;
     if (iconUrl) updateData.iconUrl = iconUrl;
     if (cropImageUrl) updateData.cropImageUrl = cropImageUrl;
     if (imageUrls) {

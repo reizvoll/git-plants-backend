@@ -80,7 +80,8 @@ export const uploadPlantImage = async (req: AuthRequest, res: Response) => {
         growthImages: growthImageUrls,
         imageUrls: growthImageUrls, // createMonthlyPlant에서 사용할 수 있도록
         iconUrl: iconResult.secure_url, // createMonthlyPlant에서 사용할 수 있도록
-        cropImageUrl: cropResult.secure_url
+        cropImageUrl: cropResult.secure_url,
+        mainImageUrl: mainResult.secure_url,
       } 
     });
   } catch (error) {

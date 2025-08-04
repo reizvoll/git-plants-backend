@@ -17,6 +17,7 @@ export const monthlyPlantSelect = {
   title: true,
   name: true,
   description: true,
+  mainImageUrl: true,
   imageUrls: true,
   iconUrl: true,
   cropImageUrl: true,
