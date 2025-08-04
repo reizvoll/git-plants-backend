@@ -120,6 +120,7 @@ model MonthlyPlant {
   updatedAt    DateTime    @updatedAt
   updatedById  String?
   id           Int         @id @default(autoincrement())
+  mainImageUrl String
   iconUrl      String
   imageUrls    String[]
   name         String
