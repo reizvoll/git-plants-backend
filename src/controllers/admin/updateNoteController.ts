@@ -8,7 +8,6 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
     const now = new Date();
     const updateNotes = await prisma.updateNote.findMany({
       where: {
-        publishedAt: { lte: now },
         OR: [
           { validUntil: null },
           { validUntil: { gte: now } }
