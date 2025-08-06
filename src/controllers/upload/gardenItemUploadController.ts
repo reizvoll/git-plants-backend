@@ -50,6 +50,7 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
         iconUrl: iconResult.secure_url,
         price: parseInt(req.body.price) || 0,
         mode: mode,
+        isAvailable: req.body.isAvailable === 'true',
         updatedById: req.superUser!.id
       }
     });
@@ -105,6 +106,7 @@ export const uploadPotImage = async (req: AuthRequest, res: Response) => {
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
         price: parseInt(req.body.price) || 0,
+        isAvailable: req.body.isAvailable === 'true',
         updatedById: req.superUser!.id
       }
     });
