@@ -47,19 +47,6 @@ export const addSeeds = async (req: AuthRequest, res: Response) => {
 export const useSeeds = async (req: AuthRequest, res: Response) => {
   try {
     const { count, itemId } = req.body;
-    
-    if (!count || count <= 0) {
-      return res.status(400).json({ message: 'Valid seed count is required' });
-    }
-
-    // Check if user has enough seeds
-    const seed = await prisma.seed.findUnique({
-      where: { userId: req.user!.id }
-    });
-    
-    if (!seed || seed.count < count) {
-      return res.status(400).json({ message: 'Not enough seeds' });
-    }
 
     // If itemId is provided, this is a purchase request
     if (itemId) {
@@ -70,6 +57,20 @@ export const useSeeds = async (req: AuthRequest, res: Response) => {
       
       if (!item) {
         return res.status(404).json({ message: 'Garden item not found' });
+      }
+
+      // Use item's actual price instead of count parameter
+      const actualPrice = item.price;
+
+      // Only check seeds if price > 0
+      if (actualPrice > 0) {
+        const seed = await prisma.seed.findUnique({
+          where: { userId: req.user!.id }
+        });
+        
+        if (!seed || seed.count < actualPrice) {
+          return res.status(400).json({ message: 'Not enough seeds' });
+        }
       }
 
       // Check if user already has this item
@@ -86,14 +87,24 @@ export const useSeeds = async (req: AuthRequest, res: Response) => {
 
       // Transaction to deduct seeds and add item
       const result = await prisma.$transaction(async (tx) => {
-        const updatedSeed = await tx.seed.update({
-          where: { userId: req.user!.id },
-          data: {
-            count: {
-              decrement: count
+        let updatedSeed = null;
+        
+        // Only deduct seeds if price > 0
+        if (actualPrice > 0) {
+          updatedSeed = await tx.seed.update({
+            where: { userId: req.user!.id },
+            data: {
+              count: {
+                decrement: actualPrice
+              }
             }
-          }
-        });
+          });
+        } else {
+          // Get current seed count for free items
+          updatedSeed = await tx.seed.findUnique({
+            where: { userId: req.user!.id }
+          });
+        }
 
         const userItem = await tx.userItem.create({
           data: {
@@ -109,13 +120,24 @@ export const useSeeds = async (req: AuthRequest, res: Response) => {
         return { updatedSeed, userItem };
       });
 
-      
       res.json({
-        seeds: result.updatedSeed,
+        seeds: result.updatedSeed || { userId: req.user!.id, count: 0 },
         purchasedItem: result.userItem
       });
     } else {
       // Simple seed usage without purchase
+      if (!count || count <= 0) {
+        return res.status(400).json({ message: 'Valid seed count is required' });
+      }
+
+      const seed = await prisma.seed.findUnique({
+        where: { userId: req.user!.id }
+      });
+      
+      if (!seed || seed.count < count) {
+        return res.status(400).json({ message: 'Not enough seeds' });
+      }
+
       const updatedSeed = await prisma.seed.update({
         where: { userId: req.user!.id },
         data: {
