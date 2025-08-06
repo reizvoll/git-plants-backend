@@ -1,6 +1,7 @@
 import prisma, { gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Request, Response } from 'express';
+import { UpdateNoteService } from '@/services/updateNoteService';
 
 // GARDEN ITEMS
 
@@ -8,6 +9,9 @@ import { Request, Response } from 'express';
 export const getGardenItems = async (req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.gardenItem.findMany({
+      where: {
+        isAvailable: true
+      },
       select: gardenItemSelect,
       orderBy: { category: 'asc' }
     });
@@ -22,7 +26,10 @@ export const getGardenItemById = async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.gardenItem.findUnique({
       select: gardenItemSelect,
-      where: { id: parseInt(req.params.id) }
+      where: { 
+        id: parseInt(req.params.id),
+        isAvailable: true
+      }
     });
     
     if (!item) {
@@ -187,13 +194,16 @@ export const purchaseItem = async (req: AuthRequest, res: Response) => {
   try {
     const { itemId } = req.body;
     
-    // Check if item exists
+    // Check if item exists and is available
     const item = await prisma.gardenItem.findUnique({
-      where: { id: parseInt(itemId) }
+      where: { 
+        id: parseInt(itemId),
+        isAvailable: true
+      }
     });
     
     if (!item) {
-      return res.status(404).json({ message: 'Garden item not found' });
+      return res.status(404).json({ message: 'Garden item not found or not available' });
     }
     
     // Check if user already has this item
@@ -369,66 +379,14 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
 
 // UPDATE NOTES
 
-// Get current active update (plant + new items)
-export const getCurrentUpdate = async (req: Request, res: Response) => {
-  try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    const now = new Date();
-    
-    // Get current active update note with publishedAt filter
-    const updateNote = await prisma.updateNote.findFirst({
-      where: {
-        isActive: true,
-        publishedAt: { lte: now },
-        OR: [
-          { validUntil: null },
-          { validUntil: { gte: now } }
-        ]
-      },
-      include: {
-        gardenItems: {
-          select: gardenItemSelect
-        }
-      },
-      orderBy: { publishedAt: 'desc' }
-    });
-    
-    // Get current month's plant with publishedAt filter
-    const monthlyPlant = await prisma.monthlyPlant.findFirst({
-      where: {
-        month: currentMonth,
-        year: currentYear
-      }
-    });
-    
-    // Prepare response
-    const response = {
-      month: currentMonth,
-      year: currentYear,
-      plant: monthlyPlant,
-      updateNote: updateNote ? {
-        id: updateNote.id,
-        title: updateNote.title,
-        description: updateNote.description,
-        imageUrl: updateNote.imageUrl,
-        publishedAt: updateNote.publishedAt
-      } : null,
-      newItems: updateNote?.gardenItems || []
-    };
-    
-    res.json(response);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching current update' });
-  }
-};
-
     // Get current active update note and new items only (for shop page)
 export const getCurrentUpdateNote = async (req: Request, res: Response) => {
   try {
     const now = new Date();
     
+    // update isActive status automatically based on time
+    await UpdateNoteService.updateActiveStatus();
+    
     // Get current active update note with publishedAt filter
     const updateNote = await prisma.updateNote.findFirst({
       where: {
@@ -441,6 +399,9 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
       },
       include: {
         gardenItems: {
+          where: {
+            isAvailable: true
+          },
           select: gardenItemSelect
         }
       },
@@ -466,47 +427,3 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching current update note' });
   }
 };
-
-// Get update history with publishedAt filter
-export const getUpdateHistory = async (req: AuthRequest, res: Response) => {
-  try {
-    const { limit = 10, offset = 0 } = req.query;
-    const now = new Date();
-    
-    const updateNotes = await prisma.updateNote.findMany({
-      where: {
-        publishedAt: { lte: now }
-      },
-      include: {
-        gardenItems: {
-          select: gardenItemSelect
-        }
-      },
-      orderBy: [
-        { publishedAt: 'desc' }
-      ],
-      take: parseInt(limit as string),
-      skip: parseInt(offset as string)
-    });
-    
-    // Format response
-    const formattedUpdates = updateNotes.map((updateNote) => ({
-      updateNote: {
-        id: updateNote.id,
-        title: updateNote.title,
-        description: updateNote.description,
-        imageUrl: updateNote.imageUrl,
-        publishedAt: updateNote.publishedAt,
-        validUntil: updateNote.validUntil,
-        isActive: updateNote.isActive,
-        createdAt: updateNote.createdAt,
-        gardenItems: updateNote.gardenItems
-      },
-      newItems: updateNote.gardenItems || []
-    }));
-    
-    res.json(formattedUpdates);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching update history' });
-  }
-}; 
