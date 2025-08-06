@@ -1,26 +1,20 @@
 import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
+import { UpdateNoteService } from '@/services/updateNoteService';
 
 // UPDATE NOTE MANAGEMENT
 export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
   try {
-    const now = new Date();
+    // update isActive status automatically based on time
+    await UpdateNoteService.updateActiveStatus();
+    
+    // show all notes in admin (no filtering)
     const updateNotes = await prisma.updateNote.findMany({
-      where: {
-        OR: [
-          { validUntil: null },
-          { validUntil: { gte: now } }
-        ],
-        isActive: true
-      },
-      include: {
-        gardenItems: true
-      },
-      orderBy: [
-        { publishedAt: 'desc' }
-      ]
+      include: { gardenItems: true },
+      orderBy: [{ publishedAt: 'desc' }]
     });
+    
     res.json(updateNotes);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching update notes' });
@@ -36,23 +30,18 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
     if (req.params.id === 'active') {
       updateNote = await prisma.updateNote.findFirst({
         where: { 
-          isActive: true,
           OR: [
             { validUntil: null },
             { validUntil: { gte: now } }
           ]
         },
-        include: {
-          gardenItems: true
-        },
+        include: { gardenItems: true },
         orderBy: { publishedAt: 'desc' }
       });
     } else {
       updateNote = await prisma.updateNote.findUnique({
         where: { id: parseInt(req.params.id) },
-        include: {
-          gardenItems: true
-        }
+        include: { gardenItems: true }
       });
     }
     
@@ -64,7 +53,7 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: 'Error fetching update note' });
   }
-} 
+};
 
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
@@ -107,10 +96,11 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
           connect: gardenItemIds.map((id: number) => ({ id }))
         } : undefined
       },
-      include: {
-        gardenItems: true
-      }
+      include: { gardenItems: true }
     });
+
+    // Apply time-based automation after creating the note
+    await UpdateNoteService.handleNoteCreation(updateNote.id);
     
     res.status(201).json(updateNote);
   } catch (error) {
@@ -121,57 +111,21 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
 
 export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, isActive, validUntil, publishedAt, gardenItemIds } = req.body;
+    const { title, description, imageUrl, validUntil, publishedAt, gardenItemIds } = req.body;
+    const noteId = parseInt(req.params.id);
     
-    // SuperUser validation is already done in adminAuth middleware
-    
-    // Build update data
-    const updateData: any = {
-      updatedById: req.superUser!.id
-    };
-    
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-    if (publishedAt !== undefined) updateData.publishedAt = publishedAt ? new Date(publishedAt) : null;
-    if (validUntil !== undefined) updateData.validUntil = validUntil ? new Date(validUntil) : null;
-    if (isActive !== undefined) {
-      updateData.isActive = isActive;
-      
-      // if this note is activated, disable all other notes
-      if (isActive) {
-        await prisma.updateNote.updateMany({
-          where: { 
-            isActive: true,
-            id: { not: parseInt(req.params.id) }
-          },
-          data: { isActive: false }
-        });
-      }
-    }
-    
-    // Handle garden items relationship
-    if (gardenItemIds !== undefined) {
-      updateData.gardenItems = {
-        set: [], // Clear existing connections
-        connect: gardenItemIds.map((id: number) => ({ id }))
-      };
-    }
-    
-    const updatedNote = await prisma.updateNote.update({
-      where: { id: parseInt(req.params.id) },
-      data: updateData,
-      include: {
-        gardenItems: true
-      }
-    });
+    const updatedNote = await UpdateNoteService.updateNote(
+      noteId,
+      { title, description, imageUrl, validUntil, publishedAt, gardenItemIds },
+      req.superUser!.id
+    );
     
     res.json(updatedNote);
   } catch (error) {
     console.error('Update note update error:', error);
     res.status(500).json({ message: 'Error updating update note' });
   }
-}; 
+};
 
 export const deleteUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
