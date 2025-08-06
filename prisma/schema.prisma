@@ -69,6 +69,7 @@ model GardenItem {
   id          Int          @id @default(autoincrement())
   iconUrl     String
   mode        String?
+  isAvailable Boolean      @default(false)
   updatedBy   SuperUser?   @relation("GardenItemUpdatedBy", fields: [updatedById], references: [id])
   userItems   UserItem[]
   updateNotes UpdateNote[] @relation("GardenItemToUpdateNote")
