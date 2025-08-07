@@ -1,19 +1,20 @@
 import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
+import { UpdateNoteService } from '@/services/updateNoteService';
 
 // UPDATE NOTE MANAGEMENT
 export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
   try {
+    // update isActive status automatically based on time
+    await UpdateNoteService.updateActiveStatus();
+    
+    // show all notes in admin (no filtering)
     const updateNotes = await prisma.updateNote.findMany({
-      include: {
-        gardenItems: true
-      },
-      orderBy: [
-        { year: 'desc' },
-        { month: 'desc' }
-      ]
+      include: { gardenItems: true },
+      orderBy: [{ publishedAt: 'desc' }]
     });
+    
     res.json(updateNotes);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching update notes' });
@@ -22,9 +23,28 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
 
 export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
   try {
-    const updateNote = await prisma.updateNote.findUnique({
-      where: { id: parseInt(req.params.id) }
-    });
+    let updateNote;
+    const now = new Date();
+    
+    // If id is "active", return the current active update note
+    if (req.params.id === 'active') {
+      updateNote = await prisma.updateNote.findFirst({
+        where: { 
+          OR: [
+            { validUntil: null },
+            { validUntil: { gte: now } }
+          ]
+        },
+        include: { gardenItems: true },
+        orderBy: { publishedAt: 'desc' }
+      });
+    } else {
+      updateNote = await prisma.updateNote.findUnique({
+        where: { id: parseInt(req.params.id) },
+        include: { gardenItems: true }
+      });
+    }
+    
     if (!updateNote) {
       return res.status(404).json({ message: 'Update note not found' });
     }
@@ -33,97 +53,79 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: 'Error fetching update note' });
   }
-} 
+};
 
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, month, year, gardenItemIds } = req.body;
+    const { title, description, imageUrl, validUntil, gardenItemIds, publishedAt } = req.body;
     
-    if (!title || !description || !imageUrl || !month || !year) {
+    if (!title || !description || !imageUrl) {
       return res.status(400).json({ 
-        message: 'Title, description, imageUrl, month, and year are required' 
+        message: 'Title, description, and imageUrl are required' 
       });
     }
     
     // SuperUser validation is already done in adminAuth middleware
     
-    // Check if update note already exists for this month/year
-    const existingUpdateNote = await prisma.updateNote.findFirst({
-      where: {
-        month: parseInt(month),
-        year: parseInt(year)
+    // Validate publishedAt if provided
+    if (publishedAt) {
+      const publishDate = new Date(publishedAt);
+      if (isNaN(publishDate.getTime())) {
+        return res.status(400).json({ 
+          message: 'Invalid publishedAt date format' 
+        });
       }
-    });
-    
-    if (existingUpdateNote) {
-      return res.status(409).json({ 
-        message: 'An update note already exists for this month and year' 
-      });
     }
     
-    // Create update note
+    // disable past active update notes
+    await prisma.updateNote.updateMany({
+      where: { isActive: true },
+      data: { isActive: false }
+    });
+    
+    // Create update note - publishedAt is required for scheduling
     const updateNote = await prisma.updateNote.create({
       data: {
         title,
         description,
         imageUrl,
-        month: parseInt(month),
-        year: parseInt(year),
+        publishedAt: publishedAt ? new Date(publishedAt) : new Date(), // Default to now if not provided
+        validUntil: validUntil ? new Date(validUntil) : undefined,
         updatedById: req.superUser!.id,
         gardenItems: gardenItemIds ? {
           connect: gardenItemIds.map((id: number) => ({ id }))
         } : undefined
       },
-      include: {
-        gardenItems: true
-      }
+      include: { gardenItems: true }
     });
+
+    // Apply time-based automation after creating the note
+    await UpdateNoteService.handleNoteCreation(updateNote.id);
     
     res.status(201).json(updateNote);
   } catch (error) {
-    console.error('Update note creation error:', error);
+    console.error('Create update note error:', error);
     res.status(500).json({ message: 'Error creating update note' });
   }
 };
 
 export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, isActive, gardenItemIds } = req.body;
+    const { title, description, imageUrl, validUntil, publishedAt, gardenItemIds } = req.body;
+    const noteId = parseInt(req.params.id);
     
-    // SuperUser validation is already done in adminAuth middleware
-    
-    // Build update data
-    const updateData: any = {
-      updatedById: req.superUser!.id
-    };
-    
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-    if (isActive !== undefined) updateData.isActive = isActive;
-    
-    // Handle garden items relationship
-    if (gardenItemIds !== undefined) {
-      updateData.gardenItems = {
-        set: [], // Clear existing connections
-        connect: gardenItemIds.map((id: number) => ({ id }))
-      };
-    }
-    
-    const updatedNote = await prisma.updateNote.update({
-      where: { id: parseInt(req.params.id) },
-      data: updateData,
-      include: {
-        gardenItems: true
-      }
-    });
+    const updatedNote = await UpdateNoteService.updateNote(
+      noteId,
+      { title, description, imageUrl, validUntil, publishedAt, gardenItemIds },
+      req.superUser!.id
+    );
     
     res.json(updatedNote);
   } catch (error) {
     console.error('Update note update error:', error);
     res.status(500).json({ message: 'Error updating update note' });
   }
-}; 
+};
 
 export const deleteUpdateNote = async (req: AuthRequest, res: Response) => {
   try {

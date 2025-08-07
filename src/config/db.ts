@@ -10,9 +10,6 @@ export const gardenItemSelect = {
   imageUrl: true,
   iconUrl: true,
   price: true,
-  createdAt: true,
-  updatedAt: true,
-  // updatedById 제외 (관리자용, 추후 별도 정의 예정)
 };
 
 export const monthlyPlantSelect = {
@@ -20,13 +17,12 @@ export const monthlyPlantSelect = {
   title: true,
   name: true,
   description: true,
+  mainImageUrl: true,
   imageUrls: true,
   iconUrl: true,
+  cropImageUrl: true,
   month: true,
   year: true,
-  createdAt: true,
-  updatedAt: true,
-  // updatedById 제외
 };
 
 export const badgeSelect = {
@@ -34,10 +30,6 @@ export const badgeSelect = {
   name: true,
   condition: true,
   imageUrl: true,
-  createdAt: true,
-  updatedAt: true,
-  // updatedById 제외
 };
-
 
 export default prisma;

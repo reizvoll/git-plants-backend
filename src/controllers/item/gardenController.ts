@@ -1,6 +1,7 @@
 import prisma, { gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Request, Response } from 'express';
+import { UpdateNoteService } from '@/services/updateNoteService';
 
 // GARDEN ITEMS
 
@@ -8,6 +9,9 @@ import { Request, Response } from 'express';
 export const getGardenItems = async (req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.gardenItem.findMany({
+      where: {
+        isAvailable: true
+      },
       select: gardenItemSelect,
       orderBy: { category: 'asc' }
     });
@@ -22,7 +26,10 @@ export const getGardenItemById = async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.gardenItem.findUnique({
       select: gardenItemSelect,
-      where: { id: parseInt(req.params.id) }
+      where: { 
+        id: parseInt(req.params.id),
+        isAvailable: true
+      }
     });
     
     if (!item) {
@@ -187,13 +194,16 @@ export const purchaseItem = async (req: AuthRequest, res: Response) => {
   try {
     const { itemId } = req.body;
     
-    // Check if item exists
+    // Check if item exists and is available
     const item = await prisma.gardenItem.findUnique({
-      where: { id: parseInt(itemId) }
+      where: { 
+        id: parseInt(itemId),
+        isAvailable: true
+      }
     });
     
     if (!item) {
-      return res.status(404).json({ message: 'Garden item not found' });
+      return res.status(404).json({ message: 'Garden item not found or not available' });
     }
     
     // Check if user already has this item
@@ -331,32 +341,37 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
   try {
     const { month, year } = req.query;
     
-    let whereClause = {};
-    
     if (month && year) {
-      whereClause = {
-        month: parseInt(month as string),
-        year: parseInt(year as string)
-      };
+      const monthlyPlant = await prisma.monthlyPlant.findFirst({
+        select: monthlyPlantSelect,
+        where: {
+          month: parseInt(month as string),
+          year: parseInt(year as string)
+        }
+      });
+      
+      if (!monthlyPlant) {
+        return res.status(404).json({ message: 'Monthly plant not found' });
+      }
+      
+      res.json(monthlyPlant);
     } else {
       // Default to current month if not specified
       const currentDate = new Date();
-      whereClause = {
-        month: currentDate.getMonth() + 1, // 1-12 for months
-        year: currentDate.getFullYear()
-      };
+      const monthlyPlant = await prisma.monthlyPlant.findFirst({
+        select: monthlyPlantSelect,
+        where: {
+          month: currentDate.getMonth() + 1, // 1-12 for months
+          year: currentDate.getFullYear()
+        }
+      });
+      
+      if (!monthlyPlant) {
+        return res.status(404).json({ message: 'Monthly plant not found' });
+      }
+      
+      res.json(monthlyPlant);
     }
-    
-    const monthlyPlant = await prisma.monthlyPlant.findFirst({
-      select: monthlyPlantSelect,
-      where: whereClause
-    });
-    
-    if (!monthlyPlant) {
-      return res.status(404).json({ message: 'Monthly plant not found' });
-    }
-    
-    res.json(monthlyPlant);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching monthly plant' });
   }
@@ -364,85 +379,45 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
 
 // UPDATE NOTES
 
-// Get current month's update (plant + new items)
-export const getCurrentUpdate = async (req: Request, res: Response) => {
-  try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    
-    // Get current month's update note
-    const updateNote = await prisma.updateNote.findFirst({
-      where: {
-        month: currentMonth,
-        year: currentYear,
-        isActive: true
-      },
-      include: {
-        gardenItems: {
-          select: gardenItemSelect
-        }
-      }
-    });
-    
-    // Get current month's plant
-    const monthlyPlant = await prisma.monthlyPlant.findFirst({
-      where: {
-        month: currentMonth,
-        year: currentYear
-      }
-    });
-    
-    // Prepare response
-    const response = {
-      month: currentMonth,
-      year: currentYear,
-      plant: monthlyPlant,
-      updateNote: updateNote ? {
-        id: updateNote.id,
-        title: updateNote.title,
-        description: updateNote.description,
-        imageUrl: updateNote.imageUrl
-      } : null,
-      newItems: updateNote?.gardenItems || []
-    };
-    
-    res.json(response);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching current update' });
-  }
-};
-
-// Get current month's update note and new items only (for shop page)
+    // Get current active update note and new items only (for shop page)
 export const getCurrentUpdateNote = async (req: Request, res: Response) => {
   try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+    const now = new Date();
     
-    // Get current month's update note
+    // update isActive status automatically based on time
+    await UpdateNoteService.updateActiveStatus();
+    
+    // Get current active update note with publishedAt filter
     const updateNote = await prisma.updateNote.findFirst({
       where: {
-        month: currentMonth,
-        year: currentYear,
-        isActive: true
+        isActive: true,
+        publishedAt: { lte: now },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: now } }
+        ]
       },
       include: {
         gardenItems: {
+          where: {
+            isAvailable: true
+          },
           select: gardenItemSelect
         }
-      }
+      },
+      orderBy: { publishedAt: 'desc' }
     });
     
     // Prepare response (only update note and new items, no monthly plant)
     const response = {
-      month: currentMonth,
-      year: currentYear,
       updateNote: updateNote ? {
         id: updateNote.id,
         title: updateNote.title,
         description: updateNote.description,
-        imageUrl: updateNote.imageUrl
+        imageUrl: updateNote.imageUrl,
+        publishedAt: updateNote.publishedAt,
+        validUntil: updateNote.validUntil,
+        gardenItems: updateNote.gardenItems
       } : null,
       newItems: updateNote?.gardenItems || []
     };
@@ -452,57 +427,3 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching current update note' });
   }
 };
-
-// Get update history
-export const getUpdateHistory = async (req: AuthRequest, res: Response) => {
-  try {
-    const { limit = 10, offset = 0 } = req.query;
-    
-    const updateNotes = await prisma.updateNote.findMany({
-      where: {
-        isActive: true
-      },
-      include: {
-        gardenItems: {
-          select: gardenItemSelect
-        }
-      },
-      orderBy: [
-        { year: 'desc' },
-        { month: 'desc' }
-      ],
-      take: parseInt(limit as string),
-      skip: parseInt(offset as string)
-    });
-    
-    // Format response with monthly plants and items
-    const formattedUpdates = await Promise.all(
-      updateNotes.map(async (updateNote) => {
-        const monthlyPlant = await prisma.monthlyPlant.findFirst({
-          where: {
-            month: updateNote.month,
-            year: updateNote.year
-          }
-        });
-        
-        return {
-          month: updateNote.month,
-          year: updateNote.year,
-          updateNote: {
-            id: updateNote.id,
-            title: updateNote.title,
-            description: updateNote.description,
-            imageUrl: updateNote.imageUrl,
-            createdAt: updateNote.createdAt
-          },
-          plant: monthlyPlant,
-          newItems: updateNote.gardenItems
-        };
-      })
-    );
-    
-    res.json(formattedUpdates);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching update history' });
-  }
-}; 
