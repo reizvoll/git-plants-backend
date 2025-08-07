@@ -1,6 +1,7 @@
 import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
+import { checkAndAwardBadges } from '@/services/badgeService';
 
 // Get user's seed count
 export const getSeedCount = async (req: AuthRequest, res: Response) => {
@@ -36,8 +37,14 @@ export const addSeeds = async (req: AuthRequest, res: Response) => {
         count
       }
     });
+
+    // Check for badges after adding seeds
+    const newBadges = await checkAndAwardBadges(req.user!.id);
     
-    res.json(seed);
+    res.json({
+      ...seed,
+      newBadges
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error adding seeds' });
   }

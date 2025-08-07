@@ -2,6 +2,7 @@ import prisma, { badgeSelect, gardenItemSelect, monthlyPlantSelect } from '@/con
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 import { GitHubCacheService } from '@/services/cacheService';
+import { checkAndAwardBadges } from '@/services/badgeService';
 
 // calculate monthly contributions with Redis cache
 export async function calculateMonthlyContributions(userId: string): Promise<number> {
@@ -303,6 +304,9 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     // Update plants first
     const plantsWithContributions = await autoUpdateAllUserPlants(userId);
 
+    // Check and award badges
+    const newBadges = await checkAndAwardBadges(userId);
+
     // get crops
     const userCrops = await prisma.userCrop.findMany({
       where: { userId },
@@ -346,7 +350,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         pots: equippedPots
       },
       plants: plantsWithContributions,
-      crops: userCrops
+      crops: userCrops,
+      newBadges
     });
   } catch (error) {
     console.error('Error fetching user profile:', error);

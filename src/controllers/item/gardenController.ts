@@ -2,6 +2,7 @@ import prisma, { gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Request, Response } from 'express';
 import { UpdateNoteService } from '@/services/updateNoteService';
+import { checkAndAwardBadges } from '@/services/badgeService';
 
 // GARDEN ITEMS
 
@@ -165,9 +166,13 @@ export const sellCrops = async (req: AuthRequest, res: Response) => {
       return { updatedSeed, soldCropsCount: cropIds.length };
     });
 
+    // Check for badges after selling crops
+    const newBadges = await checkAndAwardBadges(req.user!.id);
+
     res.json({
       seeds: result.updatedSeed,
-      soldCropsCount: result.soldCropsCount
+      soldCropsCount: result.soldCropsCount,
+      newBadges
     });
     
   } catch (error: any) {
