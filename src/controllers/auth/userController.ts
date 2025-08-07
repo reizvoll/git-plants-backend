@@ -1,13 +1,26 @@
 import prisma, { badgeSelect, gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
+import { GitHubCacheService } from '@/services/cacheService';
 
-// calculate monthly contributions
+// calculate monthly contributions with Redis cache
 export async function calculateMonthlyContributions(userId: string): Promise<number> {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth() + 1;
   
+  // check cache
+  const cachedCount = await GitHubCacheService.getMonthlyContribution(
+    userId, 
+    currentYear, 
+    currentMonth
+  );
+  
+  if (cachedCount !== null) {
+    return cachedCount;
+  }
+  
+  // get from DB
   const contribution = await prisma.gitHubActivity.findUnique({
     where: {
       userId_month_year: {
@@ -18,7 +31,17 @@ export async function calculateMonthlyContributions(userId: string): Promise<num
     }
   });
   
-  return contribution?.count || 0; // 0 if no contribution
+  const count = contribution?.count || 0;
+  
+  // save to cache
+  await GitHubCacheService.setMonthlyContribution(
+    userId, 
+    currentYear, 
+    currentMonth, 
+    count
+  );
+  
+  return count;
 }
 
 // set growth stage based on contributions

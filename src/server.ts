@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import { apiLimiter, ipLimiter } from './middlewares/rateLimiter';
+import { initRedis, closeRedis } from './config/redis';
 import activityRoutes from './routes/activityRoutes';
 import adminRoutes from './routes/adminRoutes';
 import authRoutes from './routes/authRoutes';
@@ -47,6 +48,45 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-}); 
+const IS_REDIS_PRODUCTION = process.env.IS_REDIS_PRODUCTION === 'true';
+
+// Redis initialization and server start (in production mode)
+async function startServer() {
+  try {
+    if (IS_REDIS_PRODUCTION) {
+      await initRedis();
+      
+      const server = app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+        console.log(`Redis cache enabled for GitHub activities`);
+      });
+
+      // Graceful shutdown
+      const gracefulShutdown = async (signal: string) => {
+        console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+        
+        await closeRedis();
+        
+        server.close(() => {
+          console.log('Server closed successfully');
+          process.exit(0);
+        });
+      };
+
+      process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+      process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+      
+    } else {
+      // Redis disabled - simple server start (in dev mode)
+      app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+      });
+    }
+    
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer(); 
