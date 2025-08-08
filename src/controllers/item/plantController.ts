@@ -2,6 +2,7 @@ import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 import { calculateMonthlyContributions, autoUpdateAllUserPlants } from '@/controllers/auth/userController';
+import { checkAndAwardBadges } from '@/services/badgeService';
 
 // Handle plant harvest - create crop item and reset plant
 async function handleHarvest(userPlant: any, userId: string) {
@@ -48,6 +49,9 @@ async function handleHarvest(userPlant: any, userId: string) {
       harvestCount: userPlant.harvestCount + 1 // Increment harvest count
     }
   });
+
+  // Check for badges after harvest
+  const newBadges = await checkAndAwardBadges(userId);
   
   return {
     ...updatedPlant,
@@ -55,6 +59,7 @@ async function handleHarvest(userPlant: any, userId: string) {
     newHarvestCount: updatedPlant.harvestCount,
     resetToSeed: true,
     cropReceived: userCrop,
+    newBadges,
     message: `Congratulations! Your ${monthlyPlant.name} has been harvested and you received a crop!`
   };
 }
@@ -139,8 +144,14 @@ export const createPlant = async (req: AuthRequest, res: Response) => {
         monthlyPlant: true
       }
     });
+
+    // Check for badges after creating plant
+    const newBadges = await checkAndAwardBadges(req.user!.id);
     
-    res.status(201).json(userPlant);
+    res.status(201).json({
+      ...userPlant,
+      newBadges
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error creating plant' });
   }

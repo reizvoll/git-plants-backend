@@ -1,6 +1,7 @@
 import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
+import { addBadgeService, updateBadgeService, deleteBadgeService } from '@/services/badgeService';
 
 // for garden item(background, pot)
 export const getGardenItems = async (req: AuthRequest, res: Response) => {
@@ -138,48 +139,54 @@ export const createBadge = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
       
-      const badge = await prisma.badge.create({
-        data: {
-          name,
-          condition,
-          imageUrl,
-          updatedById: req.superUser!.id
-        }
-      });
-      
-      res.status(201).json(badge);
-    } catch (error) {
-      console.error('Badge creation error:', error);
-      res.status(500).json({ message: 'Error creating badge' });
-    }
-  };
+    // use badgeService (cache invalidation included)
+    await addBadgeService({ name, condition, imageUrl });
+    
+    res.status(201).json({ message: 'Badge created successfully' });
+  } catch (error) {
+    console.error('Badge creation error:', error);
+    res.status(500).json({ message: 'Error creating badge' });
+  }
+};
 
 export const updateBadge = async (req: AuthRequest, res: Response) => {
-    try {
-      const { name, condition, imageUrl } = req.body;
-      
-      const updateData: {
-        name?: string;
-        condition?: string;
-        imageUrl?: string;
-        updatedById: string;
-      } = {
-        updatedById: req.superUser!.id
-      };
+  try {
+    const { name, condition, imageUrl } = req.body;
+    
+    const updateData: {
+      name?: string;
+      condition?: string;
+      imageUrl?: string;
+      updatedById: string;
+    } = {
+      updatedById: req.superUser!.id
+    };
 
-      // update only if the field is not undefined (conditional field update)
-      if (name !== undefined) updateData.name = name;
-      if (condition !== undefined) updateData.condition = condition;
-      if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-      
-      const updatedBadge = await prisma.badge.update({
-        where: { id: parseInt(req.params.id) },
-        data: updateData  // only includes fields that were provided
-      });
-      
-      res.json(updatedBadge);
-    } catch (error) {
-      console.error('Badge update error:', error);
-      res.status(500).json({ message: 'Error updating badge' });
-    }
-  };
+    // update only if the field is not undefined (conditional field update)
+    if (name !== undefined) updateData.name = name;
+    if (condition !== undefined) updateData.condition = condition;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    
+    // use badgeService (cache invalidation included)
+    await updateBadgeService(parseInt(req.params.id), updateData);
+    
+      res.json({ message: 'Badge updated successfully' });
+  } catch (error) {
+    console.error('Badge update error:', error);
+    res.status(500).json({ message: 'Error updating badge' });
+  }
+};
+
+export const deleteBadge = async (req: AuthRequest, res: Response) => {
+  try {
+    const badgeId = parseInt(req.params.id);
+    
+    // use badgeService (cache invalidation included)
+    await deleteBadgeService(badgeId);
+    
+    res.status(200).json({ message: 'Badge deleted successfully' });
+  } catch (error) {
+    console.error('Badge deletion error:', error);
+    res.status(500).json({ message: 'Error deleting badge' });
+  }
+};
