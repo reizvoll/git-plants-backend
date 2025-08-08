@@ -1,5 +1,5 @@
 import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAdminUsers } from '@/controllers/admin/adminController';
-import { createBadge, createGardenItem, deleteGardenItem, getBadges, getGardenItemById, getGardenItems, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
+import { createBadge, createGardenItem, deleteBadge, deleteGardenItem, getBadges, getGardenItemById, getGardenItems, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
 import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, getMonthlyPlants, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
 import { createUpdateNote, deleteUpdateNote, getUpdateNoteById, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
 import { adminAuth, logout } from '@/middlewares/authMiddleware';
@@ -37,6 +37,7 @@ router.delete('/items/:id', deleteGardenItem);
 router.get('/badges', getBadges);
 router.post('/badges', createBadge);
 router.put('/badges/:id', updateBadge);
+router.delete('/badges/:id', deleteBadge);
 
 // UPDATE NOTE MANAGEMENT
 router.get('/update-notes', getUpdateNotes);
