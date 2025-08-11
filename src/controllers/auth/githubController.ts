@@ -5,6 +5,7 @@ import { fetchUserActivities, setupAutoSync, stopAutoSync } from '@/services/git
 import { AuthRequest } from '@/types/auth';
 import axios from 'axios';
 import { Request, Response } from 'express';
+import { DefaultItemService } from '@/services/defaultItemService';
 
 // start GitHub OAuth login
 export const startGitHubAuth = (req: Request, res: Response) => {
@@ -146,6 +147,10 @@ export const githubCallback = async (req: Request, res: Response) => {
       
       // Auto-create current month's plant
       await autoCreateCurrentMonthPlant(user.id);
+      
+      // Always ensure user has default items (for new users or when defaults change)
+      const defaultItems = await DefaultItemService.awardAllDefaultItems(user.id);
+      console.log(`Ensured default items for user ${user.id}:`, defaultItems);
       
     } catch (error) {
       console.error('Error fetching GitHub activities during login:', error);
