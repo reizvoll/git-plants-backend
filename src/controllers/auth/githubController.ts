@@ -149,8 +149,7 @@ export const githubCallback = async (req: Request, res: Response) => {
       await autoCreateCurrentMonthPlant(user.id);
       
       // Always ensure user has default items (for new users or when defaults change)
-      const defaultItems = await DefaultItemService.awardAllDefaultItems(user.id);
-      console.log(`Ensured default items for user ${user.id}:`, defaultItems);
+      await DefaultItemService.awardAllDefaultItems(user.id);
       
     } catch (error) {
       console.error('Error fetching GitHub activities during login:', error);
