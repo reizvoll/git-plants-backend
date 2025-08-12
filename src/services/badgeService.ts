@@ -311,11 +311,11 @@ async function evaluateSeedCount(
 }
 
 // check and award badges from cache
-export async function checkAndAwardBadges(userId: string): Promise<string[]> {
+export async function checkAndAwardBadges(userId: string): Promise<Array<{name: string, imageUrl: string}>> {
   try {
     // get badges from cache
     const cachedBadges = await getBadgesFromCache();
-    const awardedBadges: string[] = [];
+    const awardedBadges: Array<{name: string, imageUrl: string}> = [];
 
     // get existing badges for user (N+1 problem)
     const existingUserBadges = await prisma.userBadge.findMany({
@@ -347,7 +347,19 @@ export async function checkAndAwardBadges(userId: string): Promise<string[]> {
           }
         });
 
-        awardedBadges.push(badge.name);
+        // Get badge details including imageUrl
+        const badgeDetails = await prisma.badge.findUnique({
+          where: { id: badge.id },
+          select: { name: true, imageUrl: true }
+        });
+
+        if (badgeDetails) {
+          awardedBadges.push({
+            name: badgeDetails.name,
+            imageUrl: badgeDetails.imageUrl
+          });
+        }
+
         console.log(`Awarded badge "${badge.name}" to user ${userId}`);
       }
     }
