@@ -25,8 +25,12 @@ export class DefaultItemService {
         });
         
         awardedItems.push(item.name);
-        console.log(`Awarded ${category} "${item.name}" to user ${userId}`);
       }
+    }
+    
+    // Only log if items were actually awarded
+    if (awardedItems.length > 0) {
+      console.log(`Awarded ${category}s to user ${userId}: ${awardedItems.join(', ')}`);
     }
     
     return awardedItems;
@@ -40,8 +44,6 @@ export class DefaultItemService {
     mini: string[];
   }> {
     try {
-      console.log(`Awarding default backgrounds to user: ${userId}`);
-      
       const [gardenBackgrounds, miniBackgrounds] = await Promise.all([
         prisma.gardenItem.findMany({
           where: {
@@ -78,8 +80,6 @@ export class DefaultItemService {
    */
   static async awardDefaultPots(userId: string): Promise<string[]> {
     try {
-      console.log(`Awarding default pots to user: ${userId}`);
-      
       const defaultPots = await prisma.gardenItem.findMany({
         where: {
           category: 'pot',
@@ -106,8 +106,6 @@ export class DefaultItemService {
     pots: string[];
   }> {
     try {
-      console.log(`Awarding all default items to user: ${userId}`);
-      
       const [backgrounds, pots] = await Promise.all([
         this.awardDefaultBackgrounds(userId),
         this.awardDefaultPots(userId)
