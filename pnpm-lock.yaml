@@ -50,6 +50,9 @@ importers:
       redis:
         specifier: ^5.7.0
         version: 5.8.2
+      tsconfig-paths:
+        specifier: ^4.2.0
+        version: 4.2.0
     devDependencies:
       '@types/cookie-parser':
         specifier: ^1.4.8
@@ -69,9 +72,6 @@ importers:
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@20.19.11)(typescript@5.9.2)
-      tsconfig-paths:
-        specifier: ^4.2.0
-        version: 4.2.0
       typescript:
         specifier: ^5.3.3
         version: 5.9.2
