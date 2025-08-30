@@ -1,5 +1,17 @@
 import prisma from '@/config/db';
 
+// Types
+type BadgeRecord = {
+  id: number;
+  name: string;
+  condition: string;
+  imageUrl: string;
+};
+
+type UserBadgeRecord = {
+  badgeId: number;
+};
+
 type BadgeCache = {
   badges: Array<{
     id: number;
@@ -30,11 +42,12 @@ async function loadBadgesToCache(): Promise<BadgeCache> {
     select: {
       id: true,
       name: true,
-      condition: true
+      condition: true,
+      imageUrl: true
     }
   });
 
-  const parsedBadges = badges.map(badge => ({
+  const parsedBadges = badges.map((badge: BadgeRecord) => ({
     ...badge,
     parsedCondition: parseBadgeCondition(badge.condition)
   }));
@@ -323,7 +336,7 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{name: 
       select: { badgeId: true }
     });
     
-    const existingBadgeIds = new Set(existingUserBadges.map(ub => ub.badgeId));
+    const existingBadgeIds = new Set(existingUserBadges.map((ub: UserBadgeRecord) => ub.badgeId));
 
     for (const badge of cachedBadges) {
       // check if already awarded

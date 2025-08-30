@@ -1,4 +1,4 @@
-import prisma from '@/config/db';
+import prisma, { PrismaTransaction } from '@/config/db';
 
 /*
 === UpdateNote System Flow (업데이트 노트 시스템 플로우) ===
@@ -321,7 +321,7 @@ export class UpdateNoteService {
     
     if (timeFieldsChanged) {
       // handle time fields changes in transaction (시간 필드 변경 시 트랜잭션으로 처리)
-      return await prisma.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx: PrismaTransaction) => {
         // configure update data (업데이트 데이터 구성)
         const prismaUpdateData: any = {
           updatedById

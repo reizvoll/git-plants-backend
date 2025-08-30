@@ -1,5 +1,6 @@
 import prisma, { badgeSelect, gardenItemSelect, monthlyPlantSelect } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
+import { UserEquippedItem } from '@/types/item';
 import { Response } from 'express';
 import { GitHubCacheService } from '@/services/cacheService';
 import { checkAndAwardBadges } from '@/services/badgeService';
@@ -328,14 +329,14 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     });
 
     // Separate equipped items by category
-    const equippedBackgrounds = equippedItems.filter(item => 
+    const equippedBackgrounds = equippedItems.filter((item: UserEquippedItem) => 
       item.item.category === 'background' &&
       item.item.mode // 모드 조건 추가 (default 포함 - 공용 모드로 설정)
-    ).map(item => item.item);
+    ).map((item: UserEquippedItem) => item.item);
     
-    const equippedPots = equippedItems.filter(item => 
+    const equippedPots = equippedItems.filter((item: UserEquippedItem) => 
       item.item.category === 'pot'
-    ).map(item => item.item);
+    ).map((item: UserEquippedItem) => item.item);
 
     res.json({
       user: {
