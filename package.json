@@ -4,9 +4,9 @@
   "description": "generating plant visuals based on GitHub activity, designed for use in profile READMEs",
   "main": "dist/server.ts",
   "scripts": {
-    "start": "node -r tsconfig-paths/register dist/server.js",
+    "start": "node dist/server.js",
     "dev": "ts-node-dev -r tsconfig-paths/register --respawn src/server.ts",
-    "build": "tsc"
+    "build": "tsc && tsc-alias"
   },
   "author": "reizvoll",
   "license": "MIT",
