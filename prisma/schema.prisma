@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String           @id @default(cuid())
+  githubId         String           @unique
+  username         String
+  accessToken      String
+  image            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  githubActivities GitHubActivity[]
+  refreshTokens    RefreshToken[]
+  seeds            Seed?
+  superUser        SuperUser?
+  userBadges       UserBadge[]
+  userCrops        UserCrop[]
+  userItems        UserItem[]
+  userPlants       UserPlant[]
+}
+
+model GitHubActivity {
+  id     String @id @default(cuid())
+  userId String
+  month  Int
+  year   Int
+  count  Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month, year])
+  @@index([userId, year, month])
+}
+
+model UserPlant {
+  id             String       @id @default(cuid())
+  userId         String
+  monthlyPlantId Int
+  stage          GrowthStage  @default(SEED)
+  updatedAt      DateTime     @updatedAt
+  harvestCount   Int          @default(0)
+  harvestedAt    DateTime?
+  monthlyPlant   MonthlyPlant @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([monthlyPlantId])
+}
+
+model Seed {
+  userId String @id
+  count  Int    @default(0)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GardenItem {
+  name        String
+  category    String
+  imageUrl    String
+  price       Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  updatedById String?
+  id          Int          @id @default(autoincrement())
+  iconUrl     String
+  mode        String?
+  isAvailable Boolean      @default(false)
+  updatedBy   SuperUser?   @relation("GardenItemUpdatedBy", fields: [updatedById], references: [id])
+  userItems   UserItem[]
+  updateNotes UpdateNote[] @relation("GardenItemToUpdateNote")
+}
+
+model UserItem {
+  id         String     @id @default(cuid())
+  userId     String
+  equipped   Boolean    @default(false)
+  acquiredAt DateTime   @default(now())
+  itemId     Int
+  item       GardenItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([itemId])
+}
+
+model Badge {
+  name        String
+  condition   String
+  imageUrl    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  updatedById String?
+  id          Int         @id @default(autoincrement())
+  updatedBy   SuperUser?  @relation("BadgeUpdatedBy", fields: [updatedById], references: [id])
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  awardedAt DateTime @default(now())
+  badgeId   Int
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([badgeId])
+}
+
+model MonthlyPlant {
+  title        String
+  description  String
+  month        Int
+  year         Int
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  updatedById  String?
+  id           Int         @id @default(autoincrement())
+  mainImageUrl String
+  iconUrl      String
+  imageUrls    String[]
+  name         String
+  cropImageUrl String
+  updatedBy    SuperUser?  @relation("MonthlyPlantUpdatedBy", fields: [updatedById], references: [id])
+  userCrops    UserCrop[]
+  userPlants   UserPlant[]
+
+  @@unique([month, year])
+}
+
+model UserCrop {
+  id             String       @id @default(cuid())
+  userId         String
+  monthlyPlantId Int
+  quantity       Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  monthlyPlant   MonthlyPlant @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, monthlyPlantId])
+  @@index([userId])
+  @@index([monthlyPlantId])
+}
+
+model SuperUser {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  badgeEdits      Badge[]        @relation("BadgeUpdatedBy")
+  itemEdits       GardenItem[]   @relation("GardenItemUpdatedBy")
+  plantEdits      MonthlyPlant[] @relation("MonthlyPlantUpdatedBy")
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updateNoteEdits UpdateNote[]   @relation("UpdateNoteUpdatedBy")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UpdateNote {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String
+  imageUrl    String
+  publishedAt DateTime
+  validUntil  DateTime?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  updatedById String?
+  updatedBy   SuperUser?   @relation("UpdateNoteUpdatedBy", fields: [updatedById], references: [id])
+  gardenItems GardenItem[] @relation("GardenItemToUpdateNote")
+
+  @@index([publishedAt])
+  @@index([isActive])
+}
+
+enum GrowthStage {
+  SEED
+  SPROUT
+  GROWING
+  MATURE
+  HARVEST
+}
