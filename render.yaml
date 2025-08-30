@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: git-plants-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: starter
+    region: oregon
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+databases:
+  - name: git-plants-db
+    databaseName: git_plants
+    user: git_plants_user
+    plan: starter
