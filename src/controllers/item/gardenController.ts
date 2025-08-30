@@ -1,4 +1,4 @@
-import prisma, { gardenItemSelect, monthlyPlantSelect } from '@/config/db';
+import prisma, { gardenItemSelect, monthlyPlantSelect, PrismaTransaction } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Request, Response } from 'express';
 import { UpdateNoteService } from '@/services/updateNoteService';
@@ -121,7 +121,7 @@ export const sellCrops = async (req: AuthRequest, res: Response) => {
     }
 
     // Transaction to sell crops and add seeds
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTransaction) => {
       // 1. Check if user has enough crops and get UserCrop records
       for (const [userCropId, requiredCount] of Object.entries(cropCounts)) {
         const userCrop = await tx.userCrop.findUnique({

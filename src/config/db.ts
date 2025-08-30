@@ -2,6 +2,9 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Common types
+export type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export const gardenItemSelect = {
   id: true,
   name: true,

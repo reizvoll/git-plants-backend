@@ -1,4 +1,4 @@
-import prisma from '@/config/db';
+import prisma, { PrismaTransaction } from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 import { checkAndAwardBadges } from '@/services/badgeService';
@@ -93,7 +93,7 @@ export const useSeeds = async (req: AuthRequest, res: Response) => {
       }
 
       // Transaction to deduct seeds and add item
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: PrismaTransaction) => {
         let updatedSeed = null;
         
         // Only deduct seeds if price > 0
