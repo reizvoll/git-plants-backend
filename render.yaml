@@ -17,7 +17,7 @@ services:
         value: 10000
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: git-plants-redis
           property: connectionString
       # All Environment Variables (set in Render Dashboard)
