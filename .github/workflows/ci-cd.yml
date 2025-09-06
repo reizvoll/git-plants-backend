@@ -91,7 +91,6 @@ jobs:
     - name: Run database migrations and test connections
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        REDIS_URL: ${{ secrets.REDIS_URL }}
       run: |
         echo "🔄 Running Prisma database migrations..."
         pnpm exec prisma migrate deploy
@@ -110,21 +109,7 @@ jobs:
           });
         "
         
-        echo "🔍 Testing Redis connectivity..."
-        node -e "
-          const { createClient } = require('redis');
-          if (!process.env.REDIS_URL) {
-            console.log('⚠️ REDIS_URL not set, skipping Redis test');
-            process.exit(0);
-          }
-          const redis = createClient({ url: process.env.REDIS_URL });
-          redis.connect().then(() => redis.ping()).then(result => {
-            console.log('✅ Redis connection test passed! PING:', result);
-            redis.disconnect();
-          }).catch(err => {
-            console.log('⚠️ Redis connection test failed (non-critical):', err.message);
-          });
-        "
+        echo "ℹ️ Redis connectivity will be tested on Render server startup"
 
   notify:
     name: Notification
