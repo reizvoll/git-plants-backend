@@ -1,4 +1,4 @@
-import { githubCallback, startGitHubAuth } from '@/controllers/auth/githubController';
+import { githubCallback, startGitHubAuth, startGitHubAuthAdmin } from '@/controllers/auth/githubController';
 import { getSession, refreshToken } from '@/controllers/auth/sessionController';
 import { clientAuth, logout } from '@/middlewares/authMiddleware';
 import { loginLimiter } from '@/middlewares/rateLimiter';
@@ -6,8 +6,11 @@ import express from 'express';
 
 const router = express.Router();
 
-// start GitHub OAuth login
+// start GitHub OAuth login for client
 router.get('/github', loginLimiter, startGitHubAuth);
+
+// start GitHub OAuth login for admin
+router.get('/github/admin', loginLimiter, startGitHubAuthAdmin);
 
 // GitHub OAuth callback
 router.get('/callback/github', githubCallback);

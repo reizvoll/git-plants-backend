@@ -7,9 +7,15 @@ import axios from 'axios';
 import { Request, Response } from 'express';
 import { DefaultItemService } from '@/services/defaultItemService';
 
-// start GitHub OAuth login
+// start GitHub OAuth login for client
 export const startGitHubAuth = (req: Request, res: Response) => {
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}`;
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}&state=client`;
+  res.redirect(githubAuthUrl);
+};
+
+// start GitHub OAuth login for admin
+export const startGitHubAuthAdmin = (req: Request, res: Response) => {
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${authConfig.github.clientId}&redirect_uri=${authConfig.github.callbackURL}&scope=${authConfig.github.scope}&state=admin`;
   res.redirect(githubAuthUrl);
 };
 
@@ -68,7 +74,7 @@ async function autoCreateCurrentMonthPlant(userId: string) {
 
 // GitHub OAuth callback
 export const githubCallback = async (req: Request, res: Response) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
   
   try {
     // get GitHub access token
@@ -155,11 +161,13 @@ export const githubCallback = async (req: Request, res: Response) => {
       console.error('Error fetching GitHub activities during login:', error);
     }
 
-    // redirect to frontend
-    res.redirect(`${process.env.CLIENT_URL}/auth/callback`);
+    // redirect to frontend based on state parameter
+    const redirectUrl = state === 'admin' ? process.env.ADMIN_URL : process.env.CLIENT_URL;
+    res.redirect(`${redirectUrl}/auth/callback`);
   } catch (error) {
     console.error('GitHub OAuth error:', error);
-    res.redirect(`${process.env.CLIENT_URL}/auth/error`);
+    const redirectUrl = state === 'admin' ? process.env.ADMIN_URL : process.env.CLIENT_URL;
+    res.redirect(`${redirectUrl}/auth/error`);
   }
 }; 
 
