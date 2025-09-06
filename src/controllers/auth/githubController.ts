@@ -123,7 +123,10 @@ export const githubCallback = async (req: Request, res: Response) => {
 
     // set cookies based on user type
     if (superUser) {
-      // Set admin cookies with improved settings
+      // Super users get both admin and client tokens for full access
+      const clientTokens = await generateTokens(user.id, false);
+
+      // Set admin cookies
       res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
         ...authConfig.cookie.admin.options,
         maxAge: 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
@@ -133,8 +136,19 @@ export const githubCallback = async (req: Request, res: Response) => {
         ...authConfig.cookie.admin.options,
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
+
+      // Set client cookies
+      res.cookie(authConfig.cookie.client.accessTokenName, clientTokens.accessToken, {
+        ...authConfig.cookie.client.options,
+        maxAge: 60 * 60 * 1000 // 1 hour
+      });
+
+      res.cookie(authConfig.cookie.client.refreshTokenName, clientTokens.refreshToken, {
+        ...authConfig.cookie.client.options,
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
     } else {
-      // Set client cookies with improved settings
+      // Set client cookies
       res.cookie(authConfig.cookie.client.accessTokenName, tokens.accessToken, {
         ...authConfig.cookie.client.options,
         maxAge: 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
