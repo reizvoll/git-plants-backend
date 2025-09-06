@@ -8,6 +8,8 @@ services:
     region: oregon
     buildCommand: npm run build
     startCommand: npm start
+    dependsOn:
+      - git-plants-redis
     envVars:
       - key: NODE_ENV
         value: production
