@@ -165,7 +165,10 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
 
-            return res.status(200).json({ message: 'Token refreshed' });
+            // Set user info and continue to next middleware
+            req.user = { id: storedToken.user.id, username: storedToken.user.username, image: storedToken.user.image || undefined };
+            req.isAdmin = storedToken.isAdmin;
+            next();
         }
     } catch (error) {
         console.error('Auth error:', error);
@@ -235,7 +238,11 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
 
-            return res.status(200).json({ message: 'Token refreshed' });
+            // Set user info and continue to next middleware (superUser already validated above)
+            req.user = { id: storedToken.user.id, username: storedToken.user.username, image: storedToken.user.image || undefined };
+            req.isAdmin = true;
+            req.superUser = superUser;
+            next();
         }
     } catch (error) {
         console.error('Auth error:', error);
