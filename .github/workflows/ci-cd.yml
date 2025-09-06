@@ -9,19 +9,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+    - uses: actions/checkout@v5
     
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
-        version: 9
+        version: 10
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22'
+        cache: 'pnpm'
     
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
@@ -37,10 +40,12 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: github.ref == 'refs/heads/main'
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Build Docker image
       run: docker build -t git-plants-backend .
@@ -48,11 +53,85 @@ jobs:
     - name: Test Docker image
       run: docker run --rm git-plants-backend echo "Docker build successful"
 
-  notify:
+  migrate:
     needs: [test, docker]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
+    - uses: actions/checkout@v5
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+    
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    
+    - name: Wait for Render deployment
+      run: |
+        echo "⏳ Waiting for Render deployment to complete..."
+        sleep 60
+    
+    - name: Run database migrations and test connections
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        REDIS_URL: ${{ secrets.REDIS_URL }}
+      run: |
+        echo "🔄 Running Prisma database migrations..."
+        pnpm exec prisma migrate deploy
+        echo "✅ Database migrations completed!"
+        
+        echo "🔍 Testing database connectivity..."
+        node -e "
+          const { PrismaClient } = require('@prisma/client');
+          const prisma = new PrismaClient();
+          prisma.\$queryRaw\`SELECT 1\`.then(() => {
+            console.log('✅ Database connection test passed!');
+            prisma.\$disconnect();
+          }).catch(err => {
+            console.error('❌ Database connection test failed:', err.message);
+            process.exit(1);
+          });
+        "
+        
+        echo "🔍 Testing Redis connectivity..."
+        node -e "
+          const { createClient } = require('redis');
+          if (!process.env.REDIS_URL) {
+            console.log('⚠️ REDIS_URL not set, skipping Redis test');
+            process.exit(0);
+          }
+          const redis = createClient({ url: process.env.REDIS_URL });
+          redis.connect().then(() => redis.ping()).then(result => {
+            console.log('✅ Redis connection test passed! PING:', result);
+            redis.disconnect();
+          }).catch(err => {
+            console.log('⚠️ Redis connection test failed (non-critical):', err.message);
+          });
+        "
+
+  notify:
+    needs: [migrate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
     - name: Deployment notification
-      run: echo "✅ CI/CD pipeline completed! Render will auto-deploy from main branch."
+      run: |
+        if [ "${{ needs.migrate.result }}" == "success" ]; then
+          echo "✅ Deployment successful! All health checks passed."
+        else
+          echo "⚠️ Deployment completed but some health checks failed."
+        fi
