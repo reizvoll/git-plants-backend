@@ -42,4 +42,6 @@ services:
         sync: false
       - key: BADGE_CACHE_TTL
         sync: false
+      - key: COOKIE_DOMAIN
+        sync: false
 
