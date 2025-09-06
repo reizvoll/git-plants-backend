@@ -25,9 +25,6 @@ export const authConfig = {
         sameSite: 'lax' as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        ...(process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN && { 
-          domain: process.env.COOKIE_DOMAIN 
-        })
       }
     },
     client: {
@@ -39,9 +36,6 @@ export const authConfig = {
         sameSite: 'lax' as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        ...(process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN && { 
-          domain: process.env.COOKIE_DOMAIN 
-        })
       }
     }
   }
