@@ -25,7 +25,7 @@ function requireEnvNumber(key: string): number {
 // Redis and cache settings
 const REDIS_CONFIG = {
   // Redis connection settings
-  URL: requireEnv('REDIS_URL'),
+  URL: process.env.REDIS_URL || `redis://${requireEnv('REDIS_HOST')}:${requireEnvNumber('REDIS_PORT')}`,
   RECONNECT_DELAY_MS: requireEnvNumber('REDIS_RECONNECT_DELAY_MS'),
   
   // cache settings
