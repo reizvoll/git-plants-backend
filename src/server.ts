@@ -17,6 +17,9 @@ import publicRoutes from './routes/publicRoutes';
 dotenv.config();
 const app = express();
 
+// Trust proxy for deployment environments
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
   origin: [
