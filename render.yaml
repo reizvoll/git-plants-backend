@@ -8,18 +8,13 @@ services:
     region: oregon
     buildCommand: npm run build
     startCommand: npm start
-    dependsOn:
-      - git-plants-redis
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: git-plants-redis
-          property: connectionString
+        sync: false
       # All Environment Variables (set in Render Dashboard)
       - key: GITHUB_CLIENT_ID
         sync: false
@@ -48,14 +43,3 @@ services:
       - key: BADGE_CACHE_TTL
         sync: false
 
-  - type: keyvalue
-    name: git-plants-redis
-    plan: free
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
-
-databases:
-  - name: git-plants-db
-    databaseName: git_plants
-    user: git_plants_user
-    plan: free
