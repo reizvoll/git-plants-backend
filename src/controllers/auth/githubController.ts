@@ -82,6 +82,7 @@ export const githubCallback = async (req: Request, res: Response) => {
       client_id: authConfig.github.clientId,
       client_secret: authConfig.github.clientSecret,
       code,
+      redirect_uri: authConfig.github.callbackURL,
     }, {
       headers: {
         Accept: 'application/json',
