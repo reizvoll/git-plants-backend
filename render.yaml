@@ -15,16 +15,11 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: REDIS_HOST
+      - key: REDIS_URL
         fromService:
           type: keyvalue
           name: git-plants-redis
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: keyvalue
-          name: git-plants-redis
-          property: port
+          property: connectionString
       # All Environment Variables (set in Render Dashboard)
       - key: GITHUB_CLIENT_ID
         sync: false
@@ -51,10 +46,6 @@ services:
       - key: IS_REDIS_PRODUCTION
         sync: false
       - key: BADGE_CACHE_TTL
-        sync: false
-      - key: REDIS_HOST
-        sync: false
-      - key: REDIS_PORT
         sync: false
 
   - type: keyvalue
