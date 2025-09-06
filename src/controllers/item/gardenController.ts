@@ -274,7 +274,7 @@ export const equipItem = async (req: AuthRequest, res: Response) => {
       });
 
       // add items to unequip to changes
-      itemsToUnequip.forEach(item => {
+      itemsToUnequip.forEach((item: { id: string }) => {
         changes.push({ userItemId: item.id, equipped: false });
       });
 
