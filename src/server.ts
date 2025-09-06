@@ -45,7 +45,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/public', publicRoutes);
 
 // Error handling
-app.use((err: Error, req: express.Request, res: express.Response,) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });
 });
