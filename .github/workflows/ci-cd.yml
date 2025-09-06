@@ -83,6 +83,9 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
     
+    - name: Generate Prisma client
+      run: pnpm exec prisma generate
+    
     - name: Wait for Render deployment
       run: |
         echo "⏳ Waiting for Render deployment to complete..."
@@ -92,6 +95,15 @@ jobs:
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
       run: |
+        echo "🔍 Checking DATABASE_URL..."
+        if [ -z "$DATABASE_URL" ]; then
+          echo "❌ DATABASE_URL is empty!"
+          echo "❌ Please set DATABASE_URL in GitHub Repository Secrets"
+          exit 1
+        else
+          echo "✅ DATABASE_URL is set (length: ${#DATABASE_URL})"
+        fi
+        
         echo "🔄 Running Prisma database migrations..."
         pnpm exec prisma migrate deploy
         echo "✅ Database migrations completed!"
