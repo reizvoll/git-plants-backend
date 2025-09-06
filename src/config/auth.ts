@@ -22,7 +22,7 @@ export const authConfig = {
       options: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax' as const,
+        sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       }
@@ -33,7 +33,7 @@ export const authConfig = {
       options: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax' as const,
+        sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       }

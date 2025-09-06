@@ -19,7 +19,10 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: [
+    process.env.CLIENT_URL,
+    process.env.ADMIN_URL
+  ].filter((url): url is string => Boolean(url)),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'], } ));
@@ -42,7 +45,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/public', publicRoutes);
 
 // Error handling
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response,) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });
 });
