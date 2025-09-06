@@ -88,7 +88,13 @@ export const githubCallback = async (req: Request, res: Response) => {
       },
     });
 
+    console.log('GitHub token response:', tokenResponse.data);
     const { access_token } = tokenResponse.data;
+    
+    if (!access_token) {
+      console.error('No access_token in response:', tokenResponse.data);
+      throw new Error('Failed to get access token from GitHub');
+    }
 
     // get GitHub user info
     const userResponse = await axios.get('https://api.github.com/user', {
