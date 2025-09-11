@@ -4,6 +4,7 @@ import { UserEquippedItem } from '@/types/item';
 import { Response } from 'express';
 import { GitHubCacheService } from '@/services/cacheService';
 import { checkAndAwardBadges } from '@/services/badgeService';
+import { applyTranslations, SupportedLanguage } from '@/services/translationService';
 
 // calculate monthly contributions with Redis cache
 export async function calculateMonthlyContributions(userId: string): Promise<number> {
@@ -238,6 +239,7 @@ function getCurrentStageImageUrl(imageUrls: string[], stage: string): string {
 // Get user profile with all related information (including plants with GitHub contributions)
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
     const userId = req.user!.id;
     const isAdmin = req.isAdmin;
 
@@ -328,13 +330,61 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
       orderBy: { updatedAt: 'desc' }
     });
 
+    // Apply translations to badges
+    const translatedUserBadges = await Promise.all(
+      userBadges.map(async (userBadge) => {
+        const [translatedBadge] = await applyTranslations(
+          [userBadge.badge],
+          'Badge',
+          locale,
+          ['name']
+        );
+        return {
+          ...userBadge,
+          badge: translatedBadge
+        };
+      })
+    );
+    
+    // Apply translations to all items
+    const translatedAllItems = await Promise.all(
+      allUserItems.map(async (userItem) => {
+        const [translatedItem] = await applyTranslations(
+          [userItem.item],
+          'GardenItem',
+          locale,
+          ['name']
+        );
+        return {
+          ...userItem,
+          item: translatedItem
+        };
+      })
+    );
+    
+    // Apply translations to equipped items
+    const translatedEquippedItems = await Promise.all(
+      equippedItems.map(async (userItem) => {
+        const [translatedItem] = await applyTranslations(
+          [userItem.item],
+          'GardenItem',
+          locale,
+          ['name']
+        );
+        return {
+          ...userItem,
+          item: translatedItem
+        };
+      })
+    );
+
     // Separate equipped items by category
-    const equippedBackgrounds = equippedItems.filter((item: UserEquippedItem) => 
+    const equippedBackgrounds = translatedEquippedItems.filter((item: UserEquippedItem) => 
       item.item.category === 'background' &&
       item.item.mode // 모드 조건 추가 (default 포함 - 공용 모드로 설정)
     ).map((item: UserEquippedItem) => item.item);
     
-    const equippedPots = equippedItems.filter((item: UserEquippedItem) => 
+    const equippedPots = translatedEquippedItems.filter((item: UserEquippedItem) => 
       item.item.category === 'pot'
     ).map((item: UserEquippedItem) => item.item);
 
@@ -344,8 +394,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         isAdmin
       },
       seedCount: userSeed?.count || 0,
-      badges: userBadges,
-      items: allUserItems, // 모든 아이템들
+      badges: translatedUserBadges,
+      items: translatedAllItems, // 모든 아이템들
       equipped: {
         backgrounds: equippedBackgrounds,
         pots: equippedPots
@@ -412,6 +462,7 @@ export const createUserPlant = async (req: AuthRequest, res: Response) => {
 // Get current month's available plant info
 export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
@@ -428,6 +479,14 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'No plant available for current month' });
     }
     
+    // Apply translations to monthly plant
+    const [translatedPlant] = await applyTranslations(
+      [monthlyPlant],
+      'MonthlyPlant',
+      locale,
+      ['title', 'description', 'name']
+    );
+    
     // Check user's plants for this month
     const existingUserPlants = await prisma.userPlant.findMany({
       where: {
@@ -440,7 +499,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
     });
     
     res.json({
-      monthlyPlant,
+      monthlyPlant: translatedPlant,
       userPlants: existingUserPlants,
       totalPlanted: existingUserPlants.length,
       canPlantMore: true

@@ -3,12 +3,15 @@ import { AuthRequest } from '@/types/auth';
 import { Request, Response } from 'express';
 import { UpdateNoteService } from '@/services/updateNoteService';
 import { checkAndAwardBadges } from '@/services/badgeService';
+import { applyTranslations, SupportedLanguage } from '@/services/translationService';
 
 // GARDEN ITEMS
 
 // Get all available garden items
 export const getGardenItems = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+    
     const items = await prisma.gardenItem.findMany({
       where: {
         isAvailable: true
@@ -16,7 +19,15 @@ export const getGardenItems = async (req: AuthRequest, res: Response) => {
       select: gardenItemSelect,
       orderBy: { category: 'asc' }
     });
-    res.json(items);
+    
+    const translatedItems = await applyTranslations(
+      items,
+      'GardenItem',
+      locale,
+      ['name']
+    );
+    
+    res.json(translatedItems);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching garden items' });
   }
@@ -25,6 +36,8 @@ export const getGardenItems = async (req: AuthRequest, res: Response) => {
 // Get garden item by ID
 export const getGardenItemById = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+    
     const item = await prisma.gardenItem.findUnique({
       select: gardenItemSelect,
       where: { 
@@ -37,7 +50,14 @@ export const getGardenItemById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Garden item not found' });
     }
     
-    res.json(item);
+    const [translatedItem] = await applyTranslations(
+      [item],
+      'GardenItem',
+      locale,
+      ['name']
+    );
+    
+    res.json(translatedItem);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching garden item' });
   }
@@ -71,6 +91,8 @@ export const getUserItems = async (req: AuthRequest, res: Response) => {
 // Get user's crops specifically
 export const getUserCrops = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+    
     const userCrops = await prisma.userCrop.findMany({
       where: { 
         userId: req.user!.id,
@@ -83,6 +105,7 @@ export const getUserCrops = async (req: AuthRequest, res: Response) => {
         updatedAt: true,
         monthlyPlant: {
           select: {
+            id: true,
             name: true,
             cropImageUrl: true,
             month: true,
@@ -93,7 +116,26 @@ export const getUserCrops = async (req: AuthRequest, res: Response) => {
       orderBy: { updatedAt: 'desc' }
     });
     
-    res.json(userCrops);
+    // Apply translations to monthlyPlant names
+    const translatedUserCrops = await Promise.all(
+      userCrops.map(async (userCrop) => {
+        if (userCrop.monthlyPlant) {
+          const [translatedPlant] = await applyTranslations(
+            [userCrop.monthlyPlant],
+            'MonthlyPlant',
+            locale,
+            ['name']
+          );
+          return {
+            ...userCrop,
+            monthlyPlant: translatedPlant
+          };
+        }
+        return userCrop;
+      })
+    );
+    
+    res.json(translatedUserCrops);
   } catch (error) {
     console.error('Error fetching user crops:', error);
     res.status(500).json({ message: 'Error fetching user crops' });
@@ -318,8 +360,18 @@ export const equipItem = async (req: AuthRequest, res: Response) => {
 // Get all available badges
 export const getBadges = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+    
     const badges = await prisma.badge.findMany();
-    res.json(badges);
+    
+    const translatedBadges = await applyTranslations(
+      badges,
+      'Badge',
+      locale,
+      ['name']
+    );
+    
+    res.json(translatedBadges);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching badges' });
   }
@@ -328,12 +380,31 @@ export const getBadges = async (req: AuthRequest, res: Response) => {
 // Get user's badges
 export const getUserBadges = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+    
     const userBadges = await prisma.userBadge.findMany({
       where: { userId: req.user!.id },
       include: { badge: true },
       orderBy: { awardedAt: 'desc' }
     });
-    res.json(userBadges);
+    
+    // Apply translations to badge names
+    const translatedUserBadges = await Promise.all(
+      userBadges.map(async (userBadge) => {
+        const [translatedBadge] = await applyTranslations(
+          [userBadge.badge],
+          'Badge',
+          locale,
+          ['name']
+        );
+        return {
+          ...userBadge,
+          badge: translatedBadge
+        };
+      })
+    );
+    
+    res.json(translatedUserBadges);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching user badges' });
   }
@@ -344,7 +415,8 @@ export const getUserBadges = async (req: AuthRequest, res: Response) => {
 // Get monthly plant showcase
 export const getMonthlyPlants = async (req: Request, res: Response) => {
   try {
-    const { month, year } = req.query;
+    const { month, year, locale } = req.query;
+    const requestedLocale = (locale as SupportedLanguage) || 'en';
     
     if (month && year) {
       const monthlyPlant = await prisma.monthlyPlant.findFirst({
@@ -359,7 +431,14 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
         return res.status(404).json({ message: 'Monthly plant not found' });
       }
       
-      res.json(monthlyPlant);
+      const [translatedPlant] = await applyTranslations(
+        [monthlyPlant],
+        'MonthlyPlant',
+        requestedLocale,
+        ['title', 'description', 'name']
+      );
+      
+      res.json(translatedPlant);
     } else {
       // Default to current month if not specified
       const currentDate = new Date();
@@ -375,7 +454,14 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
         return res.status(404).json({ message: 'Monthly plant not found' });
       }
       
-      res.json(monthlyPlant);
+      const [translatedPlant] = await applyTranslations(
+        [monthlyPlant],
+        'MonthlyPlant',
+        requestedLocale,
+        ['title', 'description', 'name']
+      );
+      
+      res.json(translatedPlant);
     }
   } catch (error) {
     res.status(500).json({ message: 'Error fetching monthly plant' });
@@ -387,6 +473,8 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
     // Get current active update note and new items only (for shop page)
 export const getCurrentUpdateNote = async (req: Request, res: Response) => {
   try {
+    const { locale } = req.query;
+    const requestedLocale = (locale as SupportedLanguage) || 'en';
     const now = new Date();
     
     // update isActive status automatically based on time
@@ -413,21 +501,39 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
       orderBy: { publishedAt: 'desc' }
     });
     
-    // Prepare response (only update note and new items, no monthly plant)
-    const response = {
-      updateNote: updateNote ? {
-        id: updateNote.id,
-        title: updateNote.title,
-        description: updateNote.description,
-        imageUrl: updateNote.imageUrl,
-        publishedAt: updateNote.publishedAt,
-        validUntil: updateNote.validUntil,
-        gardenItems: updateNote.gardenItems
-      } : null,
-      newItems: updateNote?.gardenItems || []
-    };
-    
-    res.json(response);
+    if (updateNote) {
+      // Apply translations to update note
+      const [translatedNote] = await applyTranslations(
+        [updateNote],
+        'UpdateNote',
+        requestedLocale,
+        ['title', 'description']
+      );
+      
+      // Apply translations to garden items
+      const translatedItems = await applyTranslations(
+        updateNote.gardenItems,
+        'GardenItem',
+        requestedLocale,
+        ['name']
+      );
+      
+      // Prepare response (only update note and new items, no monthly plant)
+      const response = {
+        updateNote: {
+          ...translatedNote,
+          gardenItems: translatedItems
+        },
+        newItems: translatedItems
+      };
+      
+      res.json(response);
+    } else {
+      res.json({
+        updateNote: null,
+        newItems: []
+      });
+    }
   } catch (error) {
     res.status(500).json({ message: 'Error fetching current update note' });
   }
