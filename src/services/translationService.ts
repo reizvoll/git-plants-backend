@@ -86,3 +86,21 @@ export const upsertTranslation = async (
     },
   });
 };
+
+// Get translations for admin responses (returns fields like nameKo, titleKo, etc.)
+export const getTranslationsForEntity = async (entityType: SupportedEntity, entityId: string) => {
+  const translations = await prisma.translation.findMany({
+    where: {
+      entityType,
+      entityId,
+      language: 'ko'
+    }
+  });
+  
+  const translationMap: { [key: string]: string } = {};
+  translations.forEach(t => {
+    translationMap[`${t.field}Ko`] = t.value;
+  });
+  
+  return translationMap;
+};

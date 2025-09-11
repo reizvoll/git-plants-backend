@@ -1,6 +1,7 @@
 import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
+import { upsertTranslation, getTranslationsForEntity } from '@/services/translationService';
 
 export const getMonthlyPlants = async (req: AuthRequest, res: Response) => {
   try {
@@ -10,7 +11,19 @@ export const getMonthlyPlants = async (req: AuthRequest, res: Response) => {
         { month: 'desc' }
       ]
     });
-    res.json(monthlyPlants);
+    
+    // Add translation data for admin
+    const plantsWithTranslations = await Promise.all(
+      monthlyPlants.map(async (plant) => {
+        const translations = await getTranslationsForEntity('MonthlyPlant', plant.id.toString());
+        return {
+          ...plant,
+          ...translations
+        };
+      })
+    );
+    
+    res.json(plantsWithTranslations);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching monthly plants' });
   }
@@ -26,7 +39,14 @@ export const getMonthlyPlantById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Monthly plant not found' });
     }
     
-    res.json(monthlyPlant);
+    // Add translation data for admin
+    const translations = await getTranslationsForEntity('MonthlyPlant', monthlyPlant.id.toString());
+    const plantWithTranslations = {
+      ...monthlyPlant,
+      ...translations
+    };
+    
+    res.json(plantWithTranslations);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching monthly plant' });
   }
@@ -34,7 +54,12 @@ export const getMonthlyPlantById = async (req: AuthRequest, res: Response) => {
 
 export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, name, description, mainImageUrl, imageUrls, iconUrl, cropImageUrl, month, year } = req.body;
+    const { 
+      title, titleKo, 
+      name, nameKo, 
+      description, descriptionKo, 
+      mainImageUrl, imageUrls, iconUrl, cropImageUrl, month, year 
+    } = req.body;
     
     if (!title || !name || !description || !mainImageUrl || !imageUrls || !month || !year) {
       return res.status(400).json({ message: 'Title, name, description, mainImageUrl, imageUrls, month, and year are required' });
@@ -62,9 +87,9 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
     
     const monthlyPlant = await prisma.monthlyPlant.create({
       data: {
-        title,
-        name,
-        description,
+        title, // default (english)
+        name,  // default (english)  
+        description, // default (english)
         mainImageUrl,
         imageUrls,
         iconUrl,
@@ -75,6 +100,19 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
       }
     });
     
+    // Add Korean translations if provided
+    const plantId = monthlyPlant.id.toString();
+    
+    if (titleKo) {
+      await upsertTranslation('MonthlyPlant', plantId, 'title', 'ko', titleKo);
+    }
+    if (nameKo) {
+      await upsertTranslation('MonthlyPlant', plantId, 'name', 'ko', nameKo);
+    }
+    if (descriptionKo) {
+      await upsertTranslation('MonthlyPlant', plantId, 'description', 'ko', descriptionKo);
+    }
+    
     res.status(201).json(monthlyPlant);
   } catch (error) {
     console.error('Monthly plant creation error:', error);
@@ -84,7 +122,12 @@ export const createMonthlyPlant = async (req: AuthRequest, res: Response) => {
 
 export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, name, description, mainImageUrl, iconUrl, cropImageUrl, imageUrls } = req.body;
+    const { 
+      title, titleKo,
+      name, nameKo,
+      description, descriptionKo,
+      mainImageUrl, iconUrl, cropImageUrl, imageUrls 
+    } = req.body;
     
     // SuperUser validation is already done in adminAuth middleware
     
@@ -93,9 +136,9 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
       updatedById: req.superUser!.id
     };
     
-    if (title) updateData.title = title;
-    if (name) updateData.name = name;
-    if (description) updateData.description = description;
+    if (title) updateData.title = title; // default (english)
+    if (name) updateData.name = name; // default (english)
+    if (description) updateData.description = description; // default (english)
     if (mainImageUrl) updateData.mainImageUrl = mainImageUrl;
     if (iconUrl) updateData.iconUrl = iconUrl;
     if (cropImageUrl) updateData.cropImageUrl = cropImageUrl;
@@ -112,6 +155,19 @@ export const updateMonthlyPlant = async (req: AuthRequest, res: Response) => {
       where: { id: parseInt(req.params.id) },
       data: updateData
     });
+    
+    // Update Korean translations if provided
+    const plantId = req.params.id;
+    
+    if (titleKo !== undefined) {
+      await upsertTranslation('MonthlyPlant', plantId, 'title', 'ko', titleKo);
+    }
+    if (nameKo !== undefined) {
+      await upsertTranslation('MonthlyPlant', plantId, 'name', 'ko', nameKo);
+    }
+    if (descriptionKo !== undefined) {
+      await upsertTranslation('MonthlyPlant', plantId, 'description', 'ko', descriptionKo);
+    }
     
     res.json(updatedPlant);
   } catch (error) {
