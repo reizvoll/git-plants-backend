@@ -1,34 +1,5 @@
 import prisma from '@/config/db';
-
-// Types
-type BadgeRecord = {
-  id: number;
-  name: string;
-  condition: string;
-  imageUrl: string;
-};
-
-type UserBadgeRecord = {
-  badgeId: number;
-};
-
-type BadgeCache = {
-  badges: Array<{
-    id: number;
-    name: string;
-    condition: string;
-    parsedCondition: BadgeCondition | null;
-  }>;
-  lastUpdated: Date;
-  isStale: boolean;
-};
-
-// simple condition type
-export type BadgeCondition = {
-  type: 'FIRST_LOGIN' | 'FIRST_SEED' | 'FIRST_PLANT' | 'FIRST_HARVEST' | 'CONTRIBUTION_COUNT' | 'HARVEST_COUNT' | 'PLANT_COUNT' | 'JOINED_YEAR' | 'SEED_COUNT';
-  value?: number;
-  period?: 'TOTAL' | 'MONTH';
-};
+import { BadgeRecord, CreateBadgeData, UserBadgeRecord, BadgeCache, BadgeCondition } from '@/types/badge';
 
 // cache for badges
 let badgeCache: BadgeCache | null = null;
@@ -385,9 +356,10 @@ export async function checkAndAwardBadges(userId: string): Promise<Array<{name: 
 }
 
 // invalidate cache when badge is added/updated/deleted
-export async function addBadgeService(badgeData: { name: string; condition: string; imageUrl: string }): Promise<void> {
-  await prisma.badge.create({ data: badgeData });
+export async function addBadgeService(badgeData: CreateBadgeData): Promise<BadgeRecord> {
+  const badge = await prisma.badge.create({ data: badgeData });
   invalidateBadgeCache();
+  return badge;
 }
 
 export async function updateBadgeService(id: number, badgeData: { 
