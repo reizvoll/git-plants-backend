@@ -191,6 +191,20 @@ model UpdateNote {
   @@index([isActive])
 }
 
+model Translation {
+  id         String @id @default(cuid())
+  entityType String 
+  entityId   String 
+  field      String 
+  language   String
+  value      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@unique([entityType, entityId, field, language])
+  @@index([entityType, entityId, language])
+}
+
 enum GrowthStage {
   SEED
   SPROUT
