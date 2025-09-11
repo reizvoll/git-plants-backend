@@ -2,6 +2,7 @@ import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 import { UpdateNoteService } from '@/services/updateNoteService';
+import { upsertTranslation, getTranslationsForEntity } from '@/services/translationService';
 
 // UPDATE NOTE MANAGEMENT
 export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
@@ -15,7 +16,18 @@ export const getUpdateNotes = async (req: AuthRequest, res: Response) => {
       orderBy: [{ publishedAt: 'desc' }]
     });
     
-    res.json(updateNotes);
+    // Add translation data for admin
+    const notesWithTranslations = await Promise.all(
+      updateNotes.map(async (note) => {
+        const translations = await getTranslationsForEntity('UpdateNote', note.id.toString());
+        return {
+          ...note,
+          ...translations
+        };
+      })
+    );
+    
+    res.json(notesWithTranslations);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching update notes' });
   }
@@ -49,7 +61,14 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Update note not found' });
     }
     
-    res.json(updateNote);
+    // Add translation data for admin
+    const translations = await getTranslationsForEntity('UpdateNote', updateNote.id.toString());
+    const noteWithTranslations = {
+      ...updateNote,
+      ...translations
+    };
+    
+    res.json(noteWithTranslations);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching update note' });
   }
@@ -57,7 +76,7 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
 
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, validUntil, gardenItemIds, publishedAt } = req.body;
+    const { title, titleKo, description, descriptionKo, imageUrl, validUntil, gardenItemIds, publishedAt } = req.body;
     
     if (!title || !description || !imageUrl) {
       return res.status(400).json({ 
@@ -86,8 +105,8 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
     // Create update note - publishedAt is required for scheduling
     const updateNote = await prisma.updateNote.create({
       data: {
-        title,
-        description,
+        title, // default (english)
+        description, // default (english)
         imageUrl,
         publishedAt: publishedAt ? new Date(publishedAt) : new Date(), // Default to now if not provided
         validUntil: validUntil ? new Date(validUntil) : undefined,
@@ -98,6 +117,16 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
       },
       include: { gardenItems: true }
     });
+
+    // Add Korean translations if provided
+    const noteId = updateNote.id.toString();
+    
+    if (titleKo) {
+      await upsertTranslation('UpdateNote', noteId, 'title', 'ko', titleKo);
+    }
+    if (descriptionKo) {
+      await upsertTranslation('UpdateNote', noteId, 'description', 'ko', descriptionKo);
+    }
 
     // Apply time-based automation after creating the note
     await UpdateNoteService.handleNoteCreation(updateNote.id);
@@ -111,14 +140,24 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
 
 export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, imageUrl, validUntil, publishedAt, gardenItemIds } = req.body;
+    const { title, titleKo, description, descriptionKo, imageUrl, validUntil, publishedAt, gardenItemIds } = req.body;
     const noteId = parseInt(req.params.id);
     
     const updatedNote = await UpdateNoteService.updateNote(
       noteId,
-      { title, description, imageUrl, validUntil, publishedAt, gardenItemIds },
+      { title, description, imageUrl, validUntil, publishedAt, gardenItemIds }, // default (english)
       req.superUser!.id
     );
+    
+    // Update Korean translations if provided
+    const noteIdStr = req.params.id;
+    
+    if (titleKo !== undefined) {
+      await upsertTranslation('UpdateNote', noteIdStr, 'title', 'ko', titleKo);
+    }
+    if (descriptionKo !== undefined) {
+      await upsertTranslation('UpdateNote', noteIdStr, 'description', 'ko', descriptionKo);
+    }
     
     res.json(updatedNote);
   } catch (error) {

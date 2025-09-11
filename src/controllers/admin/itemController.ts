@@ -2,6 +2,7 @@ import prisma from '@/config/db';
 import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 import { addBadgeService, updateBadgeService, deleteBadgeService } from '@/services/badgeService';
+import { upsertTranslation, getTranslationsForEntity } from '@/services/translationService';
 
 // for garden item(background, pot)
 export const getGardenItems = async (req: AuthRequest, res: Response) => {
@@ -28,7 +29,7 @@ export const getGardenItemById = async (req: AuthRequest, res: Response) => {
 
 export const createGardenItem = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, category, imageUrl, iconUrl, price, mode, isAvailable } = req.body;
+    const { name, nameKo, category, imageUrl, iconUrl, price, mode, isAvailable } = req.body;
 
     if (!name || !category || !imageUrl || !iconUrl || price === undefined || price === null) {
       return res.status(400).json({ 
@@ -44,7 +45,7 @@ export const createGardenItem = async (req: AuthRequest, res: Response) => {
 
       const gardenItem = await prisma.gardenItem.create({
         data: {
-          name,
+          name, // default (english)
           category,
           imageUrl,
           iconUrl,
@@ -54,6 +55,17 @@ export const createGardenItem = async (req: AuthRequest, res: Response) => {
           updatedById: req.superUser!.id
         }
       });
+
+      // Add Korean translation if provided
+      if (nameKo) {
+        await upsertTranslation(
+          'GardenItem',
+          gardenItem.id.toString(),
+          'name',
+          'ko',
+          nameKo
+        );
+      }
 
       res.json({ 
         data: category === 'background' ? gardenItem : { ...gardenItem, mode: undefined }
@@ -68,7 +80,7 @@ export const createGardenItem = async (req: AuthRequest, res: Response) => {
 
 export const updateGardenItem = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, category, imageUrl, price, mode, isAvailable } = req.body;
+    const { name, nameKo, category, imageUrl, price, mode, isAvailable } = req.body;
     
     // Check if mode is required for background category
     if (category === 'background' && !mode) {
@@ -90,7 +102,7 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
       };
 
       // update only if the field is not undefined (conditional field update)
-      if (name !== undefined) updateData.name = name;
+      if (name !== undefined) updateData.name = name; // default (english)
       if (category !== undefined) updateData.category = category;
       if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
       if (price !== undefined) updateData.price = parseInt(price);
@@ -101,6 +113,17 @@ export const updateGardenItem = async (req: AuthRequest, res: Response) => {
         where: { id: parseInt(req.params.id) },
         data: updateData  // only includes fields that were provided
       });
+
+      // Update Korean translation if provided
+      if (nameKo !== undefined) {
+        await upsertTranslation(
+          'GardenItem',
+          updatedItem.id.toString(),
+          'name',
+          'ko',
+          nameKo
+        );
+      }
       
       res.json(category === 'background' ? updatedItem : { ...updatedItem, mode: undefined });
     } catch (error) {
@@ -125,7 +148,19 @@ export const deleteGardenItem = async (req: AuthRequest, res: Response) => {
 export const getBadges = async (req: AuthRequest, res: Response) => {
     try {
       const badges = await prisma.badge.findMany();
-      res.json(badges);
+      
+      // Add translation data for admin
+      const badgesWithTranslations = await Promise.all(
+        badges.map(async (badge) => {
+          const translations = await getTranslationsForEntity('Badge', badge.id.toString());
+          return {
+            ...badge,
+            ...translations
+          };
+        })
+      );
+      
+      res.json(badgesWithTranslations);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching badges' });
     }
@@ -133,14 +168,25 @@ export const getBadges = async (req: AuthRequest, res: Response) => {
 
 export const createBadge = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, condition, imageUrl } = req.body;
+    const { name, nameKo, condition, imageUrl } = req.body;
     
     if (!name || !condition || !imageUrl) {
       return res.status(400).json({ message: 'All fields are required' });
     }
       
     // use badgeService (cache invalidation included)
-    await addBadgeService({ name, condition, imageUrl });
+    const badge = await addBadgeService({ name, condition, imageUrl });
+    
+    // Add Korean translation if provided
+    if (nameKo && badge) {
+      await upsertTranslation(
+        'Badge',
+        badge.id.toString(),
+        'name',
+        'ko',
+        nameKo
+      );
+    }
     
     res.status(201).json({ message: 'Badge created successfully' });
   } catch (error) {
@@ -151,7 +197,7 @@ export const createBadge = async (req: AuthRequest, res: Response) => {
 
 export const updateBadge = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, condition, imageUrl } = req.body;
+    const { name, nameKo, condition, imageUrl } = req.body;
     
     const updateData: {
       name?: string;
@@ -163,12 +209,23 @@ export const updateBadge = async (req: AuthRequest, res: Response) => {
     };
 
     // update only if the field is not undefined (conditional field update)
-    if (name !== undefined) updateData.name = name;
+    if (name !== undefined) updateData.name = name; // default (english)
     if (condition !== undefined) updateData.condition = condition;
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
     
     // use badgeService (cache invalidation included)
     await updateBadgeService(parseInt(req.params.id), updateData);
+    
+    // Update Korean translation if provided
+    if (nameKo !== undefined) {
+      await upsertTranslation(
+        'Badge',
+        req.params.id,
+        'name',
+        'ko',
+        nameKo
+      );
+    }
     
       res.json({ message: 'Badge updated successfully' });
   } catch (error) {

@@ -3,6 +3,7 @@ import { AuthRequest } from '@/types/auth';
 import { Response } from 'express';
 import { calculateMonthlyContributions, autoUpdateAllUserPlants } from '@/controllers/auth/userController';
 import { checkAndAwardBadges } from '@/services/badgeService';
+import { applyTranslations, SupportedLanguage } from '@/services/translationService';
 
 // Handle plant harvest - create crop item and reset plant
 async function handleHarvest(userPlant: any, userId: string) {
@@ -258,6 +259,7 @@ export const updatePlantGrowth = async (req: AuthRequest, res: Response) => {
 // Get current month's available plant
 export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
   try {
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
@@ -273,6 +275,14 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'No plant available for current month' });
     }
     
+    // Apply translations to monthly plant
+    const [translatedPlant] = await applyTranslations(
+      [monthlyPlant],
+      'MonthlyPlant',
+      locale,
+      ['title', 'description', 'name']
+    );
+    
     // Check if user has any plants for this month
     const existingUserPlants = await prisma.userPlant.findMany({
       where: {
@@ -285,7 +295,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
     });
     
     res.json({
-      monthlyPlant,
+      monthlyPlant: translatedPlant,
       userPlants: existingUserPlants,
       totalPlanted: existingUserPlants.length,
       canPlantMore: true // 수확 후 재심기 가능
