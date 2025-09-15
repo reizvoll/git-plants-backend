@@ -320,6 +320,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         updatedAt: true,
         monthlyPlant: {
           select: {
+            id: true,
             name: true,
             cropImageUrl: true,
             month: true,
@@ -329,6 +330,25 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
       },
       orderBy: { updatedAt: 'desc' }
     });
+
+    // Apply translations to monthly plant names in crops
+    const translatedUserCrops = await Promise.all(
+      userCrops.map(async (userCrop) => {
+        if (userCrop.monthlyPlant) {
+          const [translatedPlant] = await applyTranslations(
+            [userCrop.monthlyPlant],
+            'MonthlyPlant',
+            locale,
+            ['name']
+          );
+          return {
+            ...userCrop,
+            monthlyPlant: translatedPlant
+          };
+        }
+        return userCrop;
+      })
+    );
 
     // Apply translations to badges
     const translatedUserBadges = await Promise.all(
@@ -401,7 +421,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         pots: equippedPots
       },
       plants: plantsWithContributions,
-      crops: userCrops,
+      crops: translatedUserCrops,
       newBadges
     });
   } catch (error) {

@@ -69,7 +69,8 @@ export const getGardenItemById = async (req: AuthRequest, res: Response) => {
 export const getUserItems = async (req: AuthRequest, res: Response) => {
   try {
     const { category } = req.query;
-    
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+
     const userItems = await prisma.userItem.findMany({
       where: {
         userId: req.user!.id,
@@ -82,7 +83,24 @@ export const getUserItems = async (req: AuthRequest, res: Response) => {
       include: { item: true },
       orderBy: { acquiredAt: 'desc' }
     });
-    res.json(userItems);
+
+    // Apply translations to items
+    const translatedUserItems = await Promise.all(
+      userItems.map(async (userItem) => {
+        const [translatedItem] = await applyTranslations(
+          [userItem.item],
+          'GardenItem',
+          locale,
+          ['name']
+        );
+        return {
+          ...userItem,
+          item: translatedItem
+        };
+      })
+    );
+
+    res.json(translatedUserItems);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching user items' });
   }
