@@ -195,6 +195,29 @@ export const createBadge = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getBadgeById = async (req: AuthRequest, res: Response) => {
+  try {
+    const badge = await prisma.badge.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+
+    if (!badge) {
+      return res.status(404).json({ message: 'Badge not found' });
+    }
+
+    // Add translation data for admin
+    const translations = await getTranslationsForEntity('Badge', badge.id.toString());
+    const badgeWithTranslations = {
+      ...badge,
+      ...translations
+    };
+
+    res.json(badgeWithTranslations);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching badge' });
+  }
+};
+
 export const updateBadge = async (req: AuthRequest, res: Response) => {
   try {
     const { name, nameKo, condition, imageUrl } = req.body;
