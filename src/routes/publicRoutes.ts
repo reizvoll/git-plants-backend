@@ -1,4 +1,5 @@
 import { getCurrentUpdateNote, getMonthlyPlants, getGardenItems } from '@/controllers/item/gardenController';
+import { getPublicUserProfile } from '@/controllers/auth/userController';
 import express from 'express';
 
 const router = express.Router();
@@ -11,5 +12,8 @@ router.get('/current-update', getCurrentUpdateNote);
 
 // 모든 garden 아이템 조회 (상점페이지용)
 router.get('/items', getGardenItems);
+
+// 공개 유저 프로필 (리드미용)
+router.get('/profile/:username', getPublicUserProfile);
 
 export default router; 
