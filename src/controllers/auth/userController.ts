@@ -486,7 +486,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
-    
+
     const monthlyPlant = await prisma.monthlyPlant.findFirst({
       select: monthlyPlantSelect,
       where: {
@@ -494,11 +494,11 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
         year: currentYear
       }
     });
-    
+
     if (!monthlyPlant) {
       return res.status(404).json({ message: 'No plant available for current month' });
     }
-    
+
     // Apply translations to monthly plant
     const [translatedPlant] = await applyTranslations(
       [monthlyPlant],
@@ -506,7 +506,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
       locale,
       ['title', 'description', 'name']
     );
-    
+
     // Check user's plants for this month
     const existingUserPlants = await prisma.userPlant.findMany({
       where: {
@@ -517,7 +517,7 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
         updatedAt: 'desc'
       }
     });
-    
+
     res.json({
       monthlyPlant: translatedPlant,
       userPlants: existingUserPlants,
@@ -526,5 +526,85 @@ export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching current month plant' });
+  }
+};
+
+// Public API - Get user profile for public access
+export const getPublicUserProfile = async (req: any, res: Response) => {
+  try {
+    const { username } = req.params;
+    const locale = (req.query.locale as SupportedLanguage) || 'en';
+
+    if (!username) {
+      return res.status(400).json({ message: 'Username is required' });
+    }
+
+    // Check if user exists and get userId
+    const user = await prisma.user.findFirst({
+      where: { username },
+      select: { id: true, username: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userId = user.id;
+
+    // Get user's equipped items
+    const equippedItems = await prisma.userItem.findMany({
+      where: {
+        userId,
+        equipped: true
+      },
+      select: {
+        id: true,
+        equipped: true,
+        acquiredAt: true,
+        item: {
+          select: gardenItemSelect
+        }
+      }
+    });
+
+    // Get user's plants with auto-update
+    const plantsWithContributions = await autoUpdateAllUserPlants(userId);
+
+    // Apply translations to equipped items
+    const translatedEquippedItems = await Promise.all(
+      equippedItems.map(async (userItem) => {
+        const [translatedItem] = await applyTranslations(
+          [userItem.item],
+          'GardenItem',
+          locale,
+          ['name']
+        );
+        return {
+          ...userItem,
+          item: translatedItem
+        };
+      })
+    );
+
+    // Separate equipped items by category
+    const equippedBackgrounds = translatedEquippedItems.filter((item: UserEquippedItem) =>
+      item.item.category === 'background' &&
+      item.item.mode
+    ).map((item: UserEquippedItem) => item.item);
+
+    const equippedPots = translatedEquippedItems.filter((item: UserEquippedItem) =>
+      item.item.category === 'pot'
+    ).map((item: UserEquippedItem) => item.item);
+
+    res.json({
+      equipped: {
+        backgrounds: equippedBackgrounds,
+        pots: equippedPots
+      },
+      plants: plantsWithContributions
+    });
+  } catch (error) {
+    console.error('Error fetching public user profile:', error);
+    res.status(500).json({ message: 'Error fetching user profile' });
   }
 }; 
