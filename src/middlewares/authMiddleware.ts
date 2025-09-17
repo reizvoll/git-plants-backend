@@ -90,28 +90,85 @@ export const generateTokens = async (userId: string, isAdmin: boolean = false): 
 // logout
 export const logout = async (req: Request, res: Response) => {
     try {
-        const isAdmin = req.path.startsWith('/admin');
-        const cookieConfig = isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
-        
-        const token = req.headers.authorization?.split(' ')[1];
-        if (token) {
-            const decoded = jwt.decode(token) as AccessTokenPayload;
-            if (decoded?.exp) {
-                blacklistToken(token, decoded.exp);
+        const isAdminRoute = req.path.startsWith('/admin');
+
+        // Check if user is actually an admin by looking at tokens
+        const clientAccessToken = req.cookies[authConfig.cookie.client.accessTokenName];
+        const adminAccessToken = req.cookies[authConfig.cookie.admin.accessTokenName];
+
+        let userIsAdmin = false;
+        if (adminAccessToken) {
+            try {
+                const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                userIsAdmin = decoded?.isAdmin || false;
+            } catch (error) {
+                console.log('Failed to decode admin token during logout, treating as non-admin');
+                userIsAdmin = false;
             }
         }
-        
-        const refreshToken = req.cookies[cookieConfig.refreshTokenName];
-        if (refreshToken) {
+
+        // Blacklist authorization header token if it exists
+        const token = req.headers.authorization?.split(' ')[1];
+        if (token) {
+            try {
+                const decoded = jwt.decode(token) as AccessTokenPayload;
+                if (decoded?.exp) {
+                    blacklistToken(token, decoded.exp);
+                }
+            } catch (error) {
+                console.log('Failed to decode authorization header token during logout');
+            }
+        }
+
+        // Always clear client tokens
+        if (clientAccessToken) {
+            try {
+                const decoded = jwt.decode(clientAccessToken) as AccessTokenPayload;
+                if (decoded?.exp) {
+                    blacklistToken(clientAccessToken, decoded.exp);
+                }
+            } catch (error) {
+                console.log('Failed to decode client access token during logout');
+            }
+        }
+
+        const clientRefreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
+        if (clientRefreshToken) {
             await prisma.refreshToken.updateMany({
-                where: { token: refreshToken },
+                where: { token: clientRefreshToken },
                 data: { isRevoked: true }
             });
         }
 
-        // Clear cookies
-        res.clearCookie(cookieConfig.accessTokenName, cookieConfig.options);
-        res.clearCookie(cookieConfig.refreshTokenName, cookieConfig.options);
+        // Clear client cookies
+        res.clearCookie(authConfig.cookie.client.accessTokenName, authConfig.cookie.client.options);
+        res.clearCookie(authConfig.cookie.client.refreshTokenName, authConfig.cookie.client.options);
+
+        // Only clear admin tokens if user is actually an admin
+        if (userIsAdmin) {
+            if (adminAccessToken) {
+                try {
+                    const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                    if (decoded?.exp) {
+                        blacklistToken(adminAccessToken, decoded.exp);
+                    }
+                } catch (error) {
+                    console.log('Failed to decode admin access token during logout');
+                }
+            }
+
+            const adminRefreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
+            if (adminRefreshToken) {
+                await prisma.refreshToken.updateMany({
+                    where: { token: adminRefreshToken },
+                    data: { isRevoked: true }
+                });
+            }
+
+            // Clear admin cookies
+            res.clearCookie(authConfig.cookie.admin.accessTokenName, authConfig.cookie.admin.options);
+            res.clearCookie(authConfig.cookie.admin.refreshTokenName, authConfig.cookie.admin.options);
+        }
 
         return res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
