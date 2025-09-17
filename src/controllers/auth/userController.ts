@@ -56,11 +56,50 @@ function determineGrowthStage(contributions: number): 'SEED' | 'SPROUT' | 'GROWI
   return 'SEED';
 }
 
-// update all user plants automatically
+// check if plants need update (based on last update time)
+async function shouldUpdatePlants(userId: string): Promise<boolean> {
+  try {
+    const lastUpdateKey = `plant_last_update:${userId}`;
+    const lastUpdate = await GitHubCacheService.get(lastUpdateKey);
+
+    if (!lastUpdate) {
+      return true; // No previous update, should update
+    }
+
+    const lastUpdateTime = new Date(lastUpdate);
+    const now = new Date();
+    const hoursSinceUpdate = (now.getTime() - lastUpdateTime.getTime()) / (1000 * 60 * 60);
+
+    // Update if more than 1 hour has passed
+    return hoursSinceUpdate >= 1;
+  } catch (error) {
+    console.error('Error checking plant update time:', error);
+    return true; // On error, default to updating
+  }
+}
+
+// set last update time
+async function setPlantUpdateTime(userId: string): Promise<void> {
+  try {
+    const lastUpdateKey = `plant_last_update:${userId}`;
+    await GitHubCacheService.set(lastUpdateKey, new Date().toISOString(), 3600 * 24); // Cache for 24 hours
+  } catch (error) {
+    console.error('Error setting plant update time:', error);
+  }
+}
+
+// update all user plants automatically (with lazy update)
 export async function autoUpdateAllUserPlants(userId: string) {
   try {
+    // Check if update is needed
+    const needsUpdate = await shouldUpdatePlants(userId);
+    if (!needsUpdate) {
+      // Return cached plants data
+      return await getCachedPlantsData(userId);
+    }
+
     const monthlyContributions = await calculateMonthlyContributions(userId);
-    
+
     // Get current month and year
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
@@ -149,7 +188,7 @@ export async function autoUpdateAllUserPlants(userId: string) {
           newHarvestCount: harvestsNeeded,
           receivedCrops,
           message: `Harvested ${harvestsNeeded} time(s)!`,
-          // currentImageUrl: getCurrentStageImageUrl(updatedPlant.monthlyPlant.imageUrls, updatedPlant.stage)
+          currentImageUrl: getCurrentStageImageUrl(updatedPlant.monthlyPlant.imageUrls, updatedPlant.stage)
         });
       } else {
         // No harvest needed, just update stage if necessary
@@ -168,6 +207,7 @@ export async function autoUpdateAllUserPlants(userId: string) {
             currentContributions,
             totalContributions: monthlyContributions,
             stageUpdated: true,
+            currentImageUrl: getCurrentStageImageUrl(updatedPlant.monthlyPlant.imageUrls, updatedPlant.stage)
           });
         } else {
           updatedPlants.push({
@@ -179,11 +219,91 @@ export async function autoUpdateAllUserPlants(userId: string) {
         }
       }
     }
-    
+
+    // Cache the updated plants data and set update time
+    await cachePlantsData(userId, updatedPlants);
+    await setPlantUpdateTime(userId);
+
     return updatedPlants;
   } catch (error) {
     console.error('Error auto-updating plants:', error);
     throw error;
+  }
+}
+
+// cache plants data
+async function cachePlantsData(userId: string, plantsData: any[]): Promise<void> {
+  try {
+    const cacheKey = `plants_data:${userId}`;
+    await GitHubCacheService.set(cacheKey, JSON.stringify(plantsData), 3600 * 2); // Cache for 2 hours
+  } catch (error) {
+    console.error('Error caching plants data:', error);
+  }
+}
+
+// get cached plants data
+async function getCachedPlantsData(userId: string): Promise<any[]> {
+  try {
+    const cacheKey = `plants_data:${userId}`;
+    const cachedData = await GitHubCacheService.get(cacheKey);
+
+    if (cachedData) {
+      return JSON.parse(cachedData);
+    }
+
+    // If no cached data, fallback to DB query without update
+    return await getPlantDataFromDB(userId);
+  } catch (error) {
+    console.error('Error getting cached plants data:', error);
+    // Fallback to DB query
+    return await getPlantDataFromDB(userId);
+  }
+}
+
+// get plants data from DB without update logic
+async function getPlantDataFromDB(userId: string): Promise<any[]> {
+  try {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+
+    const activePlants = await prisma.userPlant.findMany({
+      where: {
+        userId,
+        monthlyPlant: {
+          month: currentMonth,
+          year: currentYear
+        }
+      },
+      select: {
+        id: true,
+        stage: true,
+        harvestCount: true,
+        updatedAt: true,
+        monthlyPlant: {
+          select: monthlyPlantSelect
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    // Get current contributions for display
+    const monthlyContributions = await calculateMonthlyContributions(userId);
+
+    return activePlants.map(plant => {
+      const targetHarvestCount = Math.floor(monthlyContributions / 70);
+      const currentContributions = monthlyContributions - (targetHarvestCount * 70);
+
+      return {
+        ...plant,
+        currentContributions,
+        totalContributions: monthlyContributions,
+        currentImageUrl: getCurrentStageImageUrl(plant.monthlyPlant.imageUrls, plant.stage)
+      };
+    });
+  } catch (error) {
+    console.error('Error getting plants data from DB:', error);
+    return [];
   }
 }
 
@@ -567,7 +687,7 @@ export const getPublicUserProfile = async (req: any, res: Response) => {
       }
     });
 
-    // Get user's plants with auto-update
+    // Get user's plants with same auto-update logic as private API
     const plantsWithContributions = await autoUpdateAllUserPlants(userId);
 
     // Apply translations to equipped items
