@@ -181,15 +181,50 @@ export class GitHubCacheService {
     try {
       const info = await redisClient.info('memory');
       const totalKeys = await redisClient.dbSize();
-      
+
       // extract memory usage
       const memoryMatch = info.match(/used_memory_human:(.+)/);
       const memoryUsage = memoryMatch ? memoryMatch[1].trim() : '0B';
-      
+
       return { totalKeys, memoryUsage };
     } catch (error) {
       console.error('Cache stats error:', error);
       return { totalKeys: 0, memoryUsage: '0B' };
+    }
+  }
+
+  /**
+   * generic get method for caching
+   */
+  static async get(key: string): Promise<string | null> {
+    if (!isRedisConnected()) {
+      return null;
+    }
+
+    try {
+      return await redisClient.get(key);
+    } catch (error) {
+      console.error('Cache get error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * generic set method for caching
+   */
+  static async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    if (!isRedisConnected()) {
+      return;
+    }
+
+    try {
+      if (ttlSeconds) {
+        await redisClient.setEx(key, ttlSeconds, value);
+      } else {
+        await redisClient.set(key, value);
+      }
+    } catch (error) {
+      console.error('Cache set error:', error);
     }
   }
 }
