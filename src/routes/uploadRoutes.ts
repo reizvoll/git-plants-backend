@@ -3,7 +3,7 @@ import { uploadPlantImage } from '@/controllers/upload/plantUploadController';
 import { uploadBackgroundImage, uploadPotImage } from '@/controllers/upload/gardenItemUploadController';
 import { uploadBadgeImage } from '@/controllers/upload/badgeUploadController';
 import { uploadUpdateNoteImage } from '@/controllers/upload/updateNoteUploadController';
-import { adminAuth } from '@/middlewares/authMiddleware';
+import { adminAuth } from '@/middlewares/adminAuth';
 import express from 'express';
 
 const router = express.Router();

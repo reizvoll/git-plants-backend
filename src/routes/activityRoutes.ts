@@ -1,5 +1,5 @@
 import { getActivityById, toggleAutoSync } from '@/controllers/auth/githubController';
-import { clientAuth } from '@/middlewares/authMiddleware';
+import { clientAuth } from '@/middlewares/clientAuth';
 import { autoSyncLimiter } from '@/middlewares/rateLimiter';
 import express from 'express';
 

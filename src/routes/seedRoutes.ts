@@ -1,5 +1,5 @@
 import { addSeeds, getSeedCount, useSeeds } from '@/controllers/item/seedController';
-import { clientAuth } from '@/middlewares/authMiddleware';
+import { clientAuth } from '@/middlewares/clientAuth';
 import express from 'express';
 
 const router = express.Router();

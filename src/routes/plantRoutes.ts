@@ -1,5 +1,5 @@
 import { updatePlantGrowth, createPlant, deletePlant, getPlantById, getPlants, updatePlant, getCurrentMonthPlant } from '@/controllers/item/plantController';
-import { clientAuth } from '@/middlewares/authMiddleware';
+import { clientAuth } from '@/middlewares/clientAuth';
 import express from 'express';
 
 const router = express.Router();

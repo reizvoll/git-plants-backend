@@ -1,6 +1,7 @@
 import { githubCallback, startGitHubAuth, startGitHubAuthAdmin } from '@/controllers/auth/githubController';
 import { getSession, refreshToken } from '@/controllers/auth/sessionController';
-import { clientAuth, logout } from '@/middlewares/authMiddleware';
+import { logout } from '@/middlewares/authMiddleware';
+import { clientAuth } from '@/middlewares/clientAuth';
 import { loginLimiter } from '@/middlewares/rateLimiter';
 import express from 'express';
 
