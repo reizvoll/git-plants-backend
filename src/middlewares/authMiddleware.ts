@@ -73,7 +73,7 @@ export const generateTokens = async (userId: string, isAdmin: boolean = false): 
     );
 
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
     await prisma.refreshToken.create({
         data: { 
@@ -181,10 +181,45 @@ export const logout = async (req: Request, res: Response) => {
 export const clientAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
         // Check both client and admin tokens
-        const token = req.cookies[authConfig.cookie.client.accessTokenName] || 
+        const token = req.cookies[authConfig.cookie.client.accessTokenName] ||
                      req.cookies[authConfig.cookie.admin.accessTokenName];
-        
-        if (!token) return res.status(401).json({ message: 'No token provided' });
+
+        // If no access token, try to refresh using refresh token
+        if (!token) {
+            const clientRefreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
+            const adminRefreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
+            const refreshToken = clientRefreshToken || adminRefreshToken;
+
+            if (!refreshToken) return res.status(401).json({ message: 'No token provided' });
+
+            const storedToken = await prisma.refreshToken.findUnique({
+                where: { token: refreshToken },
+                include: { user: true }
+            });
+
+            if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked) {
+                return res.status(401).json({ message: 'Invalid refresh token' });
+            }
+
+            const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
+            const cookieConfig = storedToken.isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
+
+            res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
+                ...cookieConfig.options,
+                maxAge: 60 * 60 * 1000 // 1 hour
+            });
+
+            res.cookie(cookieConfig.refreshTokenName, tokens.refreshToken, {
+                ...cookieConfig.options,
+                maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
+            });
+
+            // Set user info and continue to next middleware
+            req.user = { id: storedToken.user.id, username: storedToken.user.username, image: storedToken.user.image || undefined };
+            req.isAdmin = storedToken.isAdmin;
+            return next();
+        }
+
         if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
 
         try {
@@ -211,7 +246,7 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
             }
 
             const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
-            
+
             res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
                 ...cookieConfig.options,
                 maxAge: 60 * 60 * 1000 // 1 hour
@@ -219,7 +254,7 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
 
             res.cookie(cookieConfig.refreshTokenName, tokens.refreshToken, {
                 ...cookieConfig.options,
-                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+                maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
             });
 
             // Set user info and continue to next middleware
@@ -237,7 +272,49 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
 export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const token = req.cookies[authConfig.cookie.admin.accessTokenName];
-        if (!token) return res.status(401).json({ message: 'No token provided' });
+
+        // If no access token, try to refresh using refresh token
+        if (!token) {
+            const refreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
+            if (!refreshToken) return res.status(401).json({ message: 'No token provided' });
+
+            const storedToken = await prisma.refreshToken.findUnique({
+                where: { token: refreshToken },
+                include: { user: true }
+            });
+
+            if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked || !storedToken.isAdmin) {
+                return res.status(401).json({ message: 'Invalid refresh token' });
+            }
+
+            // Verify SuperUser in database for token refresh
+            const superUser = await prisma.superUser.findUnique({
+                where: { userId: storedToken.userId }
+            });
+
+            if (!superUser) {
+                return res.status(403).json({ message: 'Not authorized as admin' });
+            }
+
+            const tokens = await generateTokens(storedToken.userId, true);
+
+            res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
+                ...authConfig.cookie.admin.options,
+                maxAge: 60 * 60 * 1000 // 1 hour
+            });
+
+            res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
+                ...authConfig.cookie.admin.options,
+                maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
+            });
+
+            // Set user info and continue to next middleware
+            req.user = { id: storedToken.user.id, username: storedToken.user.username, image: storedToken.user.image || undefined };
+            req.isAdmin = true;
+            req.superUser = superUser;
+            return next();
+        }
+
         if (isTokenBlacklisted(token)) return res.status(401).json({ message: 'Token revoked' });
 
         try {
@@ -245,7 +322,7 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
             if (!decoded.isAdmin) {
                 return res.status(403).json({ message: 'Client token not allowed for admin routes' });
             }
-            
+
             // Verify SuperUser in database
             const superUser = await prisma.superUser.findUnique({
                 where: { userId: decoded.id }
@@ -284,7 +361,7 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
             }
 
             const tokens = await generateTokens(storedToken.userId, true);
-            
+
             res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
                 ...authConfig.cookie.admin.options,
                 maxAge: 60 * 60 * 1000 // 1 hour
@@ -292,7 +369,7 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
 
             res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
                 ...authConfig.cookie.admin.options,
-                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+                maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
             });
 
             // Set user info and continue to next middleware (superUser already validated above)
