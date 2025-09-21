@@ -89,11 +89,9 @@ export const githubCallback = async (req: Request, res: Response) => {
       },
     });
 
-    console.log('GitHub token response:', tokenResponse.data);
     const { access_token } = tokenResponse.data;
     
     if (!access_token) {
-      console.error('No access_token in response:', tokenResponse.data);
       throw new Error('Failed to get access token from GitHub');
     }
 
@@ -141,7 +139,7 @@ export const githubCallback = async (req: Request, res: Response) => {
 
       res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
         ...authConfig.cookie.admin.options,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
       });
 
       // Set client cookies
@@ -152,7 +150,7 @@ export const githubCallback = async (req: Request, res: Response) => {
 
       res.cookie(authConfig.cookie.client.refreshTokenName, clientTokens.refreshToken, {
         ...authConfig.cookie.client.options,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
       });
     } else {
       // Set client cookies
@@ -163,7 +161,7 @@ export const githubCallback = async (req: Request, res: Response) => {
 
       res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
         ...authConfig.cookie.client.options,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
       });
     }
 

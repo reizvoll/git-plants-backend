@@ -10,7 +10,7 @@ import {
     purchaseItem,
     sellCrops
 } from '@/controllers/item/gardenController';
-import { clientAuth } from '@/middlewares/authMiddleware';
+import { clientAuth } from '@/middlewares/clientAuth';
 import express from 'express';
 
 const router = express.Router();

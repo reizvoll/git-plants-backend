@@ -2,7 +2,8 @@ import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAd
 import { createBadge, createGardenItem, deleteBadge, deleteGardenItem, getBadgeById, getBadges, getGardenItemById, getGardenItems, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
 import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, getMonthlyPlants, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
 import { createUpdateNote, deleteUpdateNote, getUpdateNoteById, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
-import { adminAuth, logout } from '@/middlewares/authMiddleware';
+import { logout } from '@/middlewares/authMiddleware';
+import { adminAuth } from '@/middlewares/adminAuth';
 import express from 'express';
 
 const router = express.Router();

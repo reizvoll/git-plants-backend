@@ -1,7 +1,7 @@
 import { createUser, deleteUser, getUser, updateUser } from '@/controllers/auth/authController';
 import { getUserProfile, createUserPlant, getCurrentMonthPlant } from '@/controllers/auth/userController';
 import express from 'express';
-import { clientAuth } from '../middlewares/authMiddleware';
+import { clientAuth } from '../middlewares/clientAuth';
 
 const router = express.Router();
 
