@@ -55,9 +55,12 @@ export const generateTokens = async (userId: string, isAdmin: boolean = false): 
     });
     if (!user) throw new Error('User not found');
 
-    // Revoke all existing refresh tokens for this user
+    // Revoke only matching type refresh tokens for this user
     await prisma.refreshToken.updateMany({
-        where: { userId },
+        where: {
+            userId,
+            isAdmin
+        },
         data: { isRevoked: true }
     });
 
