@@ -58,9 +58,9 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
         } catch (error) {
             if (!(error instanceof jwt.TokenExpiredError)) throw error;
 
-            const isAdmin = req.cookies[authConfig.cookie.admin.accessTokenName] !== undefined;
-            const cookieConfig = isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
-            const refreshToken = req.cookies[cookieConfig.refreshTokenName];
+            const clientRefreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
+            const adminRefreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
+            const refreshToken = clientRefreshToken || adminRefreshToken;
 
             if (!refreshToken) return res.status(401).json({ message: 'Token expired' });
 
@@ -74,6 +74,7 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
             }
 
             const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
+            const cookieConfig = storedToken.isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
 
             res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
                 ...cookieConfig.options,
