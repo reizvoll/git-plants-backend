@@ -1,4 +1,4 @@
-import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAdminUsers } from '@/controllers/admin/adminController';
+import { createAdminUser, deleteAdminUser, getAdminSession, getAdminStats, getAdminUsers, getAllUsers, getUserById, updateUserById, deleteUserById } from '@/controllers/admin/adminController';
 import { createBadge, createGardenItem, deleteBadge, deleteGardenItem, getBadgeById, getBadges, getGardenItemById, getGardenItems, updateBadge, updateGardenItem } from '@/controllers/admin/itemController';
 import { createMonthlyPlant, deleteMonthlyPlant, getMonthlyPlantById, getMonthlyPlants, updateMonthlyPlant } from '@/controllers/admin/monthlyPlantController';
 import { createUpdateNote, deleteUpdateNote, getUpdateNoteById, getUpdateNotes, updateUpdateNote } from '@/controllers/admin/updateNoteController';
@@ -48,9 +48,15 @@ router.post('/update-notes', createUpdateNote);
 router.put('/update-notes/:id', updateUpdateNote);
 router.delete('/update-notes/:id', deleteUpdateNote);
 
-// ADMIN USER MANAGEMENT
+// SUPER USER MANAGEMENT
 router.get('/users', getAdminUsers);
 router.post('/users', createAdminUser);
 router.delete('/users/:id', deleteAdminUser);
+
+// ALL USER MANAGEMENT
+router.get('/all-users', getAllUsers);
+router.get('/all-users/:id', getUserById);
+router.put('/all-users/:id', updateUserById);
+router.delete('/all-users/:id', deleteUserById);
 
 export default router; 
