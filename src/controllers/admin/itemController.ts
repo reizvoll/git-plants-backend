@@ -206,15 +206,15 @@ export const getBadges = async (req: AuthRequest, res: Response) => {
 
 export const createBadge = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, nameKo, condition, imageUrl } = req.body;
-    
+    const { name, nameKo, condition, conditionKo, imageUrl } = req.body;
+
     if (!name || !condition || !imageUrl) {
       return res.status(400).json({ message: 'All fields are required' });
     }
-      
+
     // use badgeService (cache invalidation included)
     const badge = await addBadgeService({ name, condition, imageUrl });
-    
+
     // Add Korean translation if provided
     if (nameKo && badge) {
       await upsertTranslation(
@@ -225,7 +225,18 @@ export const createBadge = async (req: AuthRequest, res: Response) => {
         nameKo
       );
     }
-    
+
+    // Add Korean translation for condition if provided
+    if (conditionKo && badge) {
+      await upsertTranslation(
+        'Badge',
+        badge.id.toString(),
+        'condition',
+        'ko',
+        conditionKo
+      );
+    }
+
     res.status(201).json({ message: 'Badge created successfully' });
   } catch (error) {
     console.error('Badge creation error:', error);
@@ -258,8 +269,8 @@ export const getBadgeById = async (req: AuthRequest, res: Response) => {
 
 export const updateBadge = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, nameKo, condition, imageUrl } = req.body;
-    
+    const { name, nameKo, condition, conditionKo, imageUrl } = req.body;
+
     const updateData: {
       name?: string;
       condition?: string;
@@ -273,10 +284,10 @@ export const updateBadge = async (req: AuthRequest, res: Response) => {
     if (name !== undefined) updateData.name = name; // default (english)
     if (condition !== undefined) updateData.condition = condition;
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-    
+
     // use badgeService (cache invalidation included)
     await updateBadgeService(parseInt(req.params.id), updateData);
-    
+
     // Update Korean translation if provided
     if (nameKo !== undefined) {
       await upsertTranslation(
@@ -287,7 +298,18 @@ export const updateBadge = async (req: AuthRequest, res: Response) => {
         nameKo
       );
     }
-    
+
+    // Update Korean translation for condition if provided
+    if (conditionKo !== undefined) {
+      await upsertTranslation(
+        'Badge',
+        req.params.id,
+        'condition',
+        'ko',
+        conditionKo
+      );
+    }
+
       res.json({ message: 'Badge updated successfully' });
   } catch (error) {
     console.error('Badge update error:', error);
