@@ -477,7 +477,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
           [userBadge.badge],
           'Badge',
           locale,
-          ['name']
+          ['name', 'condition']
         );
         return {
           ...userBadge,

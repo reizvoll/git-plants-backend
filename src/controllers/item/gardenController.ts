@@ -386,7 +386,7 @@ export const getBadges = async (req: AuthRequest, res: Response) => {
       badges,
       'Badge',
       locale,
-      ['name']
+      ['name', 'condition']
     );
     
     res.json(translatedBadges);
@@ -413,7 +413,7 @@ export const getUserBadges = async (req: AuthRequest, res: Response) => {
           [userBadge.badge],
           'Badge',
           locale,
-          ['name']
+          ['name', 'condition']
         );
         return {
           ...userBadge,
@@ -527,7 +527,7 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
         requestedLocale,
         ['title', 'description']
       );
-      
+
       // Apply translations to garden items
       const translatedItems = await applyTranslations(
         updateNote.gardenItems,
@@ -535,16 +535,26 @@ export const getCurrentUpdateNote = async (req: Request, res: Response) => {
         requestedLocale,
         ['name']
       );
-      
+
+      // Select image based on locale from imageUrls array
+      // imageUrls: [englishUrl, koreanUrl]
+      const imageUrl = requestedLocale === 'ko' && updateNote.imageUrls.length > 1
+        ? updateNote.imageUrls[1]
+        : updateNote.imageUrls[0];
+
+      // Remove imageUrls array and use single imageUrl for client
+      const { imageUrls: _, ...noteWithoutImageUrls } = translatedNote;
+
       // Prepare response (only update note and new items, no monthly plant)
       const response = {
         updateNote: {
-          ...translatedNote,
+          ...noteWithoutImageUrls,
+          imageUrl, // single imageUrl based on locale
           gardenItems: translatedItems
         },
         newItems: translatedItems
       };
-      
+
       res.json(response);
     } else {
       res.json({
