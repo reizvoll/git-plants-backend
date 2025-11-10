@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { Response } from 'express';
 import { AuthRequest } from '@/types/auth';
 import { uploadToCloudinary } from './uploadController';
+import { upsertTranslation } from '@/services/translationService';
 
 const prisma = new PrismaClient();
 
@@ -9,26 +10,36 @@ const prisma = new PrismaClient();
 export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    
+
     if (!files.mainImage?.[0] || !files.iconImage?.[0]) {
       return res.status(400).json({ message: 'Main image and icon image are required' });
     }
 
-    const name = req.body.name || files.mainImage[0].originalname;
-    const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
-    const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
-    const mode = req.body.mode || 'DEFAULT';
+    // Parse itemData from JSON
+    if (!req.body.itemData) {
+      return res.status(400).json({ message: 'Item data is required' });
+    }
+
+    const itemData = JSON.parse(req.body.itemData);
+    const { name, nameKo, price, mode, isAvailable } = itemData;
+
+    if (!name || price === undefined || !mode) {
+      return res.status(400).json({ message: 'Name, price, and mode are required' });
+    }
 
     // Validate mode
     if (mode !== 'DEFAULT' && mode !== 'GARDEN' && mode !== 'MINI') {
       return res.status(400).json({ message: 'Mode must be either DEFAULT, GARDEN or MINI' });
     }
 
+    const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
+    const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
+
     // Upload main image
     const mainResult = await uploadToCloudinary(
-      files.mainImage[0], 
-      'git-plants(backgrounds)', 
-      'items/backgrounds', 
+      files.mainImage[0],
+      'git-plants(backgrounds)',
+      'items/backgrounds',
       mainFilename
     );
 
@@ -39,28 +50,39 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
       'items/backgrounds',
       iconFilename
     );
-    
+
     // SuperUser validation is already done in adminAuth middleware
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
-        name: name,
+        name,
         category: 'background',
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
-        price: parseInt(req.body.price) || 0,
-        mode: mode,
-        isAvailable: req.body.isAvailable === 'true',
+        price,
+        mode,
+        isAvailable: isAvailable ?? false,
         updatedById: req.superUser!.id
       }
     });
 
-    res.json({ 
-      data: { 
+    // Add Korean translation if provided
+    if (nameKo) {
+      await upsertTranslation(
+        'GardenItem',
+        gardenItem.id.toString(),
+        'name',
+        'ko',
+        nameKo
+      );
+    }
+
+    res.json({
+      data: {
         mainImage: mainResult,
         iconImage: iconResult,
-        gardenItem 
-      } 
+        gardenItem
+      }
     });
   } catch (error) {
     console.error('Background image upload error:', error);
@@ -72,20 +94,31 @@ export const uploadBackgroundImage = async (req: AuthRequest, res: Response) => 
 export const uploadPotImage = async (req: AuthRequest, res: Response) => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    
+
     if (!files.mainImage?.[0] || !files.iconImage?.[0]) {
       return res.status(400).json({ message: 'Main image and icon image are required' });
     }
 
-    const name = req.body.name || files.mainImage[0].originalname;
+    // Parse itemData from JSON
+    if (!req.body.itemData) {
+      return res.status(400).json({ message: 'Item data is required' });
+    }
+
+    const itemData = JSON.parse(req.body.itemData);
+    const { name, nameKo, price, isAvailable } = itemData;
+
+    if (!name || price === undefined) {
+      return res.status(400).json({ message: 'Name and price are required' });
+    }
+
     const mainFilename = req.body.mainFilename || files.mainImage[0].originalname;
     const iconFilename = req.body.iconFilename || files.iconImage[0].originalname;
 
     // Upload main image
     const mainResult = await uploadToCloudinary(
-      files.mainImage[0], 
-      'git-plants(pots)', 
-      'items/pots', 
+      files.mainImage[0],
+      'git-plants(pots)',
+      'items/pots',
       mainFilename
     );
 
@@ -96,27 +129,38 @@ export const uploadPotImage = async (req: AuthRequest, res: Response) => {
       'items/pots',
       iconFilename
     );
-    
+
     // SuperUser validation is already done in adminAuth middleware
 
     const gardenItem = await prisma.gardenItem.create({
       data: {
-        name: name,
+        name,
         category: 'pot',
         imageUrl: mainResult.secure_url,
         iconUrl: iconResult.secure_url,
-        price: parseInt(req.body.price) || 0,
-        isAvailable: req.body.isAvailable === 'true',
+        price,
+        isAvailable: isAvailable ?? false,
         updatedById: req.superUser!.id
       }
     });
 
-    res.json({ 
-      data: { 
+    // Add Korean translation if provided
+    if (nameKo) {
+      await upsertTranslation(
+        'GardenItem',
+        gardenItem.id.toString(),
+        'name',
+        'ko',
+        nameKo
+      );
+    }
+
+    res.json({
+      data: {
         mainImage: mainResult,
         iconImage: iconResult,
-        gardenItem 
-      } 
+        gardenItem
+      }
     });
   } catch (error) {
     console.error('Pot image upload error:', error);
