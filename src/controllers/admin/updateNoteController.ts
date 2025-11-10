@@ -76,38 +76,38 @@ export const getUpdateNoteById = async (req: AuthRequest, res: Response) => {
 
 export const createUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, titleKo, description, descriptionKo, imageUrl, validUntil, gardenItemIds, publishedAt } = req.body;
-    
-    if (!title || !description || !imageUrl) {
-      return res.status(400).json({ 
-        message: 'Title, description, and imageUrl are required' 
+    const { title, titleKo, description, descriptionKo, imageUrls, validUntil, gardenItemIds, publishedAt } = req.body;
+
+    if (!title || !description || !imageUrls || !Array.isArray(imageUrls) || imageUrls.length !== 2) {
+      return res.status(400).json({
+        message: 'Title, description, and imageUrls array with 2 URLs are required'
       });
     }
-    
+
     // SuperUser validation is already done in adminAuth middleware
-    
+
     // Validate publishedAt if provided
     if (publishedAt) {
       const publishDate = new Date(publishedAt);
       if (isNaN(publishDate.getTime())) {
-        return res.status(400).json({ 
-          message: 'Invalid publishedAt date format' 
+        return res.status(400).json({
+          message: 'Invalid publishedAt date format'
         });
       }
     }
-    
+
     // disable past active update notes
     await prisma.updateNote.updateMany({
       where: { isActive: true },
       data: { isActive: false }
     });
-    
+
     // Create update note - publishedAt is required for scheduling
     const updateNote = await prisma.updateNote.create({
       data: {
         title, // default (english)
         description, // default (english)
-        imageUrl,
+        imageUrls, // [englishUrl, koreanUrl]
         publishedAt: publishedAt ? new Date(publishedAt) : new Date(), // Default to now if not provided
         validUntil: validUntil ? new Date(validUntil) : undefined,
         updatedById: req.superUser!.id,
@@ -120,7 +120,7 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
 
     // Add Korean translations if provided
     const noteId = updateNote.id.toString();
-    
+
     if (titleKo) {
       await upsertTranslation('UpdateNote', noteId, 'title', 'ko', titleKo);
     }
@@ -130,7 +130,7 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
 
     // Apply time-based automation after creating the note
     await UpdateNoteService.handleNoteCreation(updateNote.id);
-    
+
     res.status(201).json(updateNote);
   } catch (error) {
     console.error('Create update note error:', error);
@@ -140,25 +140,32 @@ export const createUpdateNote = async (req: AuthRequest, res: Response) => {
 
 export const updateUpdateNote = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, titleKo, description, descriptionKo, imageUrl, validUntil, publishedAt, gardenItemIds } = req.body;
+    const { title, titleKo, description, descriptionKo, imageUrls, validUntil, publishedAt, gardenItemIds } = req.body;
     const noteId = parseInt(req.params.id);
-    
+
+    // Validate imageUrls if provided
+    if (imageUrls !== undefined && (!Array.isArray(imageUrls) || imageUrls.length !== 2)) {
+      return res.status(400).json({
+        message: 'imageUrls must be an array with 2 URLs'
+      });
+    }
+
     const updatedNote = await UpdateNoteService.updateNote(
       noteId,
-      { title, description, imageUrl, validUntil, publishedAt, gardenItemIds }, // default (english)
+      { title, description, imageUrls, validUntil, publishedAt, gardenItemIds }, // default (english)
       req.superUser!.id
     );
-    
+
     // Update Korean translations if provided
     const noteIdStr = req.params.id;
-    
+
     if (titleKo !== undefined) {
       await upsertTranslation('UpdateNote', noteIdStr, 'title', 'ko', titleKo);
     }
     if (descriptionKo !== undefined) {
       await upsertTranslation('UpdateNote', noteIdStr, 'description', 'ko', descriptionKo);
     }
-    
+
     res.json(updatedNote);
   } catch (error) {
     console.error('Update note update error:', error);

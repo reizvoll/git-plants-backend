@@ -306,11 +306,11 @@ export class UpdateNoteService {
    * update UpdateNote
    */
   static async updateNote(
-    noteId: number, 
+    noteId: number,
     updateData: {
       title?: string;
       description?: string;
-      imageUrl?: string;
+      imageUrls?: string[];
       validUntil?: string | null;
       publishedAt?: string | null;
       gardenItemIds?: number[];
@@ -318,7 +318,7 @@ export class UpdateNoteService {
     updatedById: string
   ) {
     const timeFieldsChanged = this.hasTimeFieldChanges(updateData);
-    
+
     if (timeFieldsChanged) {
       // handle time fields changes in transaction (시간 필드 변경 시 트랜잭션으로 처리)
       return await prisma.$transaction(async (tx: PrismaTransaction) => {
@@ -326,17 +326,17 @@ export class UpdateNoteService {
         const prismaUpdateData: any = {
           updatedById
         };
-        
+
         if (updateData.title !== undefined) prismaUpdateData.title = updateData.title;
         if (updateData.description !== undefined) prismaUpdateData.description = updateData.description;
-        if (updateData.imageUrl !== undefined) prismaUpdateData.imageUrl = updateData.imageUrl;
+        if (updateData.imageUrls !== undefined) prismaUpdateData.imageUrls = updateData.imageUrls;
         if (updateData.publishedAt !== undefined) {
           prismaUpdateData.publishedAt = updateData.publishedAt ? new Date(updateData.publishedAt) : null;
         }
         if (updateData.validUntil !== undefined) {
           prismaUpdateData.validUntil = updateData.validUntil ? new Date(updateData.validUntil) : null;
         }
-        
+
         // handle garden items relationship (관계 처리)
         if (updateData.gardenItemIds !== undefined) {
           prismaUpdateData.gardenItems = {
@@ -344,7 +344,7 @@ export class UpdateNoteService {
             connect: updateData.gardenItemIds.map((id: number) => ({ id }))
           };
         }
-        
+
         // update note (노트 업데이트)
         await tx.updateNote.update({
           where: { id: noteId },
@@ -354,7 +354,7 @@ export class UpdateNoteService {
         // apply automation based on time changes (시간 변경에 따른 자동화 실행)
         const now = new Date();
         await this.updateActiveStatusInTransaction(tx, now);
-        
+
         // return the updated note (최종 업데이트된 노트 반환)
         return await tx.updateNote.findUnique({
           where: { id: noteId },
@@ -366,11 +366,11 @@ export class UpdateNoteService {
       const prismaUpdateData: any = {
         updatedById
       };
-      
+
       if (updateData.title !== undefined) prismaUpdateData.title = updateData.title;
       if (updateData.description !== undefined) prismaUpdateData.description = updateData.description;
-      if (updateData.imageUrl !== undefined) prismaUpdateData.imageUrl = updateData.imageUrl;
-      
+      if (updateData.imageUrls !== undefined) prismaUpdateData.imageUrls = updateData.imageUrls;
+
       // handle garden items relationship (관계 처리)
       if (updateData.gardenItemIds !== undefined) {
         prismaUpdateData.gardenItems = {
@@ -378,7 +378,7 @@ export class UpdateNoteService {
           connect: updateData.gardenItemIds.map((id: number) => ({ id }))
         };
       }
-      
+
       return await prisma.updateNote.update({
         where: { id: noteId },
         data: prismaUpdateData,
