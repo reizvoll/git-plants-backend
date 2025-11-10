@@ -177,7 +177,7 @@ model UpdateNote {
   id          Int          @id @default(autoincrement())
   title       String
   description String
-  imageUrl    String
+  imageUrls   String[]
   publishedAt DateTime
   validUntil  DateTime?
   isActive    Boolean      @default(true)

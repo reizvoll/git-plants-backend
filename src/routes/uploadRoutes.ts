@@ -38,7 +38,10 @@ router.post('/pots', upload.fields([
 // upload badge image
 router.post('/badges', upload.single('image'), uploadBadgeImage);
 
-// upload update-note image
-router.post('/update-notes', upload.single('image'), uploadUpdateNoteImage);
+// upload update-note images
+router.post('/update-notes', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'imageKo', maxCount: 1 }
+]), uploadUpdateNoteImage);
 
 export default router; 
