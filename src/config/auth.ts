@@ -22,10 +22,9 @@ export const authConfig = {
       options: {
         httpOnly: true,
         secure: true,
-        sameSite: 'none' as 'strict' | 'lax' | 'none',
+        sameSite: 'lax' as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 3 * 24 * 60 * 60 * 1000,
-        partitioned: true, // Enable CHIPS (Chrome 114+)
       }
     },
     client: {
@@ -34,10 +33,9 @@ export const authConfig = {
       options: {
         httpOnly: true,
         secure: true,
-        sameSite: 'none' as 'strict' | 'lax' | 'none',
+        sameSite: 'lax' as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 3 * 24 * 60 * 60 * 1000,
-        partitioned: true, // Enable CHIPS (Chrome 114+)
       }
     }
   }
