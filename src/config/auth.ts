@@ -25,6 +25,7 @@ export const authConfig = {
         sameSite: 'none' as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 3 * 24 * 60 * 60 * 1000,
+        partitioned: true, // Enable CHIPS (Chrome 114+)
       }
     },
     client: {
@@ -36,6 +37,7 @@ export const authConfig = {
         sameSite: 'none' as 'strict' | 'lax' | 'none',
         path: '/',
         maxAge: 3 * 24 * 60 * 60 * 1000,
+        partitioned: true, // Enable CHIPS (Chrome 114+)
       }
     }
   }
