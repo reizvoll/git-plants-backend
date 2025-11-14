@@ -26,6 +26,8 @@ services:
         sync: false
       - key: JWT_REFRESH_SECRET
         sync: false
+      - key: COOKIE_DOMAIN
+        sync: false
       - key: CLIENT_URL
         sync: false
       - key: ADMIN_URL

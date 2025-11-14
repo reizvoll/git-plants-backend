@@ -23,6 +23,7 @@ export const authConfig = {
         httpOnly: true,
         secure: true,
         sameSite: 'lax' as 'strict' | 'lax' | 'none',
+        ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
         path: '/',
         maxAge: 3 * 24 * 60 * 60 * 1000,
       }
@@ -34,6 +35,7 @@ export const authConfig = {
         httpOnly: true,
         secure: true,
         sameSite: 'lax' as 'strict' | 'lax' | 'none',
+        ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
         path: '/',
         maxAge: 3 * 24 * 60 * 60 * 1000,
       }
