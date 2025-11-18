@@ -139,7 +139,7 @@ export const githubCallback = async (req: Request, res: Response) => {
 
       res.cookie(authConfig.cookie.admin.refreshTokenName, tokens.refreshToken, {
         ...authConfig.cookie.admin.options,
-        maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
       // Set client cookies
@@ -150,7 +150,7 @@ export const githubCallback = async (req: Request, res: Response) => {
 
       res.cookie(authConfig.cookie.client.refreshTokenName, clientTokens.refreshToken, {
         ...authConfig.cookie.client.options,
-        maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
     } else {
       // Set client cookies
@@ -161,7 +161,7 @@ export const githubCallback = async (req: Request, res: Response) => {
 
       res.cookie(authConfig.cookie.client.refreshTokenName, tokens.refreshToken, {
         ...authConfig.cookie.client.options,
-        maxAge: 3 * 24 * 60 * 60 * 1000 // 3 days
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
     }
 
