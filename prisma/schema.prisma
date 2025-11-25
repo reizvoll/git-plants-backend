@@ -48,6 +48,7 @@ model UserPlant {
   monthlyPlant   MonthlyPlant @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, monthlyPlantId])
   @@index([userId])
   @@index([monthlyPlantId])
 }
