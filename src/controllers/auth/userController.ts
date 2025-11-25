@@ -5,6 +5,7 @@ import { Response } from 'express';
 import { GitHubCacheService } from '@/services/cacheService';
 import { checkAndAwardBadges } from '@/services/badgeService';
 import { applyTranslations, SupportedLanguage } from '@/services/translationService';
+import redisClient from '@/config/redis';
 
 // calculate monthly contributions with Redis cache
 export async function calculateMonthlyContributions(userId: string): Promise<number> {
@@ -104,26 +105,61 @@ export async function autoUpdateAllUserPlants(userId: string) {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
-    
-    // Only get current month's plants
-    const activePlants = await prisma.userPlant.findMany({
-      where: { 
+
+    // Common select for UserPlant queries
+    const userPlantSelect = {
+      id: true,
+      stage: true,
+      harvestCount: true,
+      monthlyPlant: {
+        select: monthlyPlantSelect
+      }
+    };
+
+    // Check if user has plants for current month
+    let activePlants = await prisma.userPlant.findMany({
+      where: {
         userId,
         monthlyPlant: {
           month: currentMonth,
           year: currentYear
         }
       },
-      select: {
-        id: true,
-        stage: true,
-        harvestCount: true,
-        monthlyPlant: {
-          select: monthlyPlantSelect
-        }
-      },
+      select: userPlantSelect,
       orderBy: { updatedAt: 'desc' }
     });
+
+    // If no plants for current month, check if MonthlyPlant exists and auto-create
+    if (activePlants.length === 0) {
+      const currentMonthlyPlant = await prisma.monthlyPlant.findFirst({
+        where: {
+          month: currentMonth,
+          year: currentYear
+        },
+        select: monthlyPlantSelect
+      });
+
+      if (currentMonthlyPlant) {
+        const newUserPlant = await prisma.userPlant.upsert({
+          where: {
+            userId_monthlyPlantId: {
+              userId,
+              monthlyPlantId: currentMonthlyPlant.id
+            }
+          },
+          update: {}, // Already exists, return as-is
+          create: {
+            userId,
+            monthlyPlantId: currentMonthlyPlant.id,
+            stage: 'SEED',
+            harvestCount: 0
+          },
+          select: userPlantSelect
+        });
+
+        activePlants = [newUserPlant];
+      }
+    }
 
     const updatedPlants = [];
 
@@ -304,6 +340,23 @@ async function getPlantDataFromDB(userId: string): Promise<any[]> {
   } catch (error) {
     console.error('Error getting plants data from DB:', error);
     return [];
+  }
+}
+
+// invalidate user's plants cache
+export async function invalidatePlantsCache(userId: string): Promise<void> {
+  try {
+    const cacheKey = `plants_data:${userId}`;
+    const lastUpdateKey = `plant_last_update:${userId}`;
+
+    // Delete both cache keys (redis.del is safe even if keys don't exist)
+    const deletedCount = await redisClient.del([cacheKey, lastUpdateKey]);
+
+    if (deletedCount > 0) {
+      console.log(`Invalidated ${deletedCount} cache key(s) for user: ${userId}`);
+    }
+  } catch (error) {
+    console.error('Error invalidating plants cache:', error);
   }
 }
 
@@ -592,7 +645,10 @@ export const createUserPlant = async (req: AuthRequest, res: Response) => {
         }
       }
     });
-    
+
+    // Invalidate cache to reflect new plant immediately
+    await invalidatePlantsCache(req.user!.id);
+
     res.status(201).json(userPlant);
   } catch (error) {
     res.status(500).json({ message: 'Error creating plant' });

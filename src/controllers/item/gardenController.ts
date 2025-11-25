@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { UpdateNoteService } from '@/services/updateNoteService';
 import { checkAndAwardBadges } from '@/services/badgeService';
 import { applyTranslations, SupportedLanguage } from '@/services/translationService';
+import { invalidatePlantsCache } from '@/controllers/auth/userController';
 
 // GARDEN ITEMS
 
@@ -228,6 +229,9 @@ export const sellCrops = async (req: AuthRequest, res: Response) => {
 
     // Check for badges after selling crops
     const newBadges = await checkAndAwardBadges(req.user!.id);
+
+    // Invalidate cache to reflect sold crops immediately
+    await invalidatePlantsCache(userId);
 
     res.json({
       seeds: result.updatedSeed,
