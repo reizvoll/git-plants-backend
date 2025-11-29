@@ -24,28 +24,28 @@ router.get('/stats', getAdminStats);
 router.get('/monthly-plants', getMonthlyPlants);
 router.get('/monthly-plants/:id', getMonthlyPlantById);
 router.post('/monthly-plants', createMonthlyPlant);
-router.put('/monthly-plants/:id', updateMonthlyPlant);
+router.patch('/monthly-plants/:id', updateMonthlyPlant);
 router.delete('/monthly-plants/:id', deleteMonthlyPlant);
 
 // GARDEN ITEM MANAGEMENT
 router.get('/items', getGardenItems);
 router.get('/items/:id', getGardenItemById);
 router.post('/items', createGardenItem);
-router.put('/items/:id', updateGardenItem);
+router.patch('/items/:id', updateGardenItem);
 router.delete('/items/:id', deleteGardenItem);
 
 // BADGE MANAGEMENT
 router.get('/badges', getBadges);
 router.get('/badges/:id', getBadgeById);
 router.post('/badges', createBadge);
-router.put('/badges/:id', updateBadge);
+router.patch('/badges/:id', updateBadge);
 router.delete('/badges/:id', deleteBadge);
 
 // UPDATE NOTE MANAGEMENT
 router.get('/update-notes', getUpdateNotes);
 router.get('/update-notes/:id', getUpdateNoteById);
 router.post('/update-notes', createUpdateNote);
-router.put('/update-notes/:id', updateUpdateNote);
+router.patch('/update-notes/:id', updateUpdateNote);
 router.delete('/update-notes/:id', deleteUpdateNote);
 
 // SUPER USER MANAGEMENT
@@ -56,7 +56,7 @@ router.delete('/users/:id', deleteAdminUser);
 // ALL USER MANAGEMENT
 router.get('/all-users', getAllUsers);
 router.get('/all-users/:id', getUserById);
-router.put('/all-users/:id', updateUserById);
+router.patch('/all-users/:id', updateUserById);
 router.delete('/all-users/:id', deleteUserById);
 
 export default router; 
