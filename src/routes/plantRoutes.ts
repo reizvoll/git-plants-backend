@@ -20,7 +20,7 @@ router.get('/:id', getPlantById);
 router.post('/', createPlant);
 
 // Update plant
-router.put('/:id', updatePlant);
+router.patch('/:id', updatePlant);
 
 // Delete plant
 router.delete('/:id', deletePlant);

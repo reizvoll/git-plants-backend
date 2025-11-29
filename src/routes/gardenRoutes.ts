@@ -41,7 +41,7 @@ router.post('/user-crops/sell', sellCrops);
 router.post('/user-items', purchaseItem);
 
 // Equip/unequip user item
-router.put('/user-items/:id', equipItem);
+router.patch('/user-items/:id', equipItem);
 
 // BADGES
 
