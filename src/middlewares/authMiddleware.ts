@@ -47,29 +47,28 @@ const cleanupExpiredTokens = async () => {
 // Run cleanup every hour
 setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
 
-// generate tokens
-export const generateTokens = async (userId: string, isAdmin: boolean = false): Promise<TokenResponse> => {
+// generate tokens with token family tracking (family only)
+export const generateTokens = async (
+    userId: string,
+    isAdmin: boolean = false,
+    existingFamilyId?: string
+): Promise<TokenResponse> => {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, username: true, image: true }
     });
     if (!user) throw new Error('User not found');
 
-    // Revoke only matching type refresh tokens for this user
-    await prisma.refreshToken.updateMany({
-        where: {
-            userId,
-            isAdmin
-        },
-        data: { isRevoked: true }
-    });
+    // Determine family ID: use existing for token refresh, create new for login
+    const familyId = existingFamilyId || crypto.randomBytes(20).toString('hex');
 
+    // Generate tokens
     const accessToken = jwt.sign(
-        { 
-            id: user.id, 
-            username: user.username, 
+        {
+            id: user.id,
+            username: user.username,
             image: user.image || undefined,
-            isAdmin 
+            isAdmin
         },
         authConfig.jwt.secret,
         { expiresIn: authConfig.jwt.accessTokenExpiresIn }
@@ -78,12 +77,14 @@ export const generateTokens = async (userId: string, isAdmin: boolean = false): 
     const refreshToken = crypto.randomBytes(40).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    // Create new refresh token with family tracking
     await prisma.refreshToken.create({
-        data: { 
-            token: refreshToken, 
-            userId: user.id, 
+        data: {
+            token: refreshToken,
+            userId: user.id,
             expiresAt,
-            isAdmin 
+            isAdmin,
+            familyId,
         }
     });
 
@@ -151,12 +152,24 @@ export const logout = async (req: Request, res: Response) => {
             }
         }
 
+        // Revoke only the current token family (not all user tokens)
         const clientRefreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
         if (clientRefreshToken) {
-            await prisma.refreshToken.updateMany({
+            const storedToken = await prisma.refreshToken.findUnique({
                 where: { token: clientRefreshToken },
-                data: { isRevoked: true }
+                select: { familyId: true, userId: true }
             });
+
+            if (storedToken) {
+                // Revoke only this family (allows other devices to stay logged in)
+                await prisma.refreshToken.updateMany({
+                    where: {
+                        familyId: storedToken.familyId,
+                        userId: storedToken.userId
+                    },
+                    data: { isRevoked: true }
+                });
+            }
         }
 
         // Clear client cookies
@@ -186,10 +199,21 @@ export const logout = async (req: Request, res: Response) => {
 
             const adminRefreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
             if (adminRefreshToken) {
-                await prisma.refreshToken.updateMany({
+                const storedToken = await prisma.refreshToken.findUnique({
                     where: { token: adminRefreshToken },
-                    data: { isRevoked: true }
+                    select: { familyId: true, userId: true }
                 });
+
+                if (storedToken) {
+                    // Revoke only this family
+                    await prisma.refreshToken.updateMany({
+                        where: {
+                            familyId: storedToken.familyId,
+                            userId: storedToken.userId
+                        },
+                        data: { isRevoked: true }
+                    });
+                }
             }
 
             // Clear admin cookies

@@ -52,8 +52,12 @@ export const clientAuth = async (req: Request, res: Response, next: NextFunction
                     return res.status(401).json({ message: 'Invalid or expired refresh token' });
                 }
 
-                // Generate new tokens (with rotation)
-                const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
+                // Generate new tokens (with family tracking for multi-device support)
+                const tokens = await generateTokens(
+                    storedToken.userId,
+                    storedToken.isAdmin,
+                    storedToken.familyId
+                );
                 const cookieConfig = storedToken.isAdmin ? authConfig.cookie.admin : authConfig.cookie.client;
 
                 // Set new cookies
