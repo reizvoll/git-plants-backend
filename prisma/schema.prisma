@@ -28,9 +28,9 @@ model User {
 model GitHubActivity {
   id     String @id @default(cuid())
   userId String
+  count  Int
   month  Int
   year   Int
-  count  Int
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month, year])
@@ -122,11 +122,11 @@ model MonthlyPlant {
   updatedAt    DateTime    @updatedAt
   updatedById  String?
   id           Int         @id @default(autoincrement())
-  mainImageUrl String
   iconUrl      String
   imageUrls    String[]
   name         String
   cropImageUrl String
+  mainImageUrl String
   updatedBy    SuperUser?  @relation("MonthlyPlantUpdatedBy", fields: [updatedById], references: [id])
   userCrops    UserCrop[]
   userPlants   UserPlant[]
@@ -169,22 +169,25 @@ model RefreshToken {
   isRevoked Boolean  @default(false)
   isAdmin   Boolean  @default(false)
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId  String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([familyId])
 }
 
 model UpdateNote {
   id          Int          @id @default(autoincrement())
   title       String
   description String
-  imageUrls   String[]
-  publishedAt DateTime
-  validUntil  DateTime?
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   updatedById String?
+  publishedAt DateTime
+  validUntil  DateTime?
+  imageUrls   String[]
   updatedBy   SuperUser?   @relation("UpdateNoteUpdatedBy", fields: [updatedById], references: [id])
   gardenItems GardenItem[] @relation("GardenItemToUpdateNote")
 
@@ -193,15 +196,15 @@ model UpdateNote {
 }
 
 model Translation {
-  id         String @id @default(cuid())
-  entityType String 
-  entityId   String 
-  field      String 
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  field      String
   language   String
   value      String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
+
   @@unique([entityType, entityId, field, language])
   @@index([entityType, entityId, language])
 }
