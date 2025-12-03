@@ -2,7 +2,7 @@ import { authConfig } from '@/config/auth';
 import prisma from '@/config/db';
 import { AccessTokenPayload, TokenResponse, UserPayload } from '@/types/auth';
 import crypto from 'crypto';
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { SuperUser } from '@prisma/client';
 
@@ -102,10 +102,10 @@ export const logout = async (req: Request, res: Response) => {
         let userIsAdmin = false;
         if (adminAccessToken) {
             try {
-                const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                const decoded = jwt.verify(adminAccessToken, authConfig.jwt.secret) as AccessTokenPayload;
                 userIsAdmin = decoded?.isAdmin || false;
             } catch (error) {
-                console.log('Failed to decode admin token during logout, treating as non-admin');
+                console.log('Failed to verify admin token during logout, treating as non-admin');
                 userIsAdmin = false;
             }
         }
@@ -114,24 +114,40 @@ export const logout = async (req: Request, res: Response) => {
         const token = req.headers.authorization?.split(' ')[1];
         if (token) {
             try {
-                const decoded = jwt.decode(token) as AccessTokenPayload;
+                const decoded = jwt.verify(token, authConfig.jwt.secret) as AccessTokenPayload;
                 if (decoded?.exp) {
                     blacklistToken(token, decoded.exp);
                 }
             } catch (error) {
-                console.log('Failed to decode authorization header token during logout');
+                // If verification fails, try to decode to get exp for blacklisting
+                try {
+                    const decoded = jwt.decode(token) as AccessTokenPayload;
+                    if (decoded?.exp) {
+                        blacklistToken(token, decoded.exp);
+                    }
+                } catch {
+                    console.log('Failed to process authorization header token during logout');
+                }
             }
         }
 
         // Always clear client tokens
         if (clientAccessToken) {
             try {
-                const decoded = jwt.decode(clientAccessToken) as AccessTokenPayload;
+                const decoded = jwt.verify(clientAccessToken, authConfig.jwt.secret) as AccessTokenPayload;
                 if (decoded?.exp) {
                     blacklistToken(clientAccessToken, decoded.exp);
                 }
             } catch (error) {
-                console.log('Failed to decode client access token during logout');
+                // If verification fails, try to decode to get exp for blacklisting
+                try {
+                    const decoded = jwt.decode(clientAccessToken) as AccessTokenPayload;
+                    if (decoded?.exp) {
+                        blacklistToken(clientAccessToken, decoded.exp);
+                    }
+                } catch {
+                    console.log('Failed to process client access token during logout');
+                }
             }
         }
 
@@ -151,12 +167,20 @@ export const logout = async (req: Request, res: Response) => {
         if (userIsAdmin) {
             if (adminAccessToken) {
                 try {
-                    const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                    const decoded = jwt.verify(adminAccessToken, authConfig.jwt.secret) as AccessTokenPayload;
                     if (decoded?.exp) {
                         blacklistToken(adminAccessToken, decoded.exp);
                     }
                 } catch (error) {
-                    console.log('Failed to decode admin access token during logout');
+                    // If verification fails, try to decode to get exp for blacklisting
+                    try {
+                        const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                        if (decoded?.exp) {
+                            blacklistToken(adminAccessToken, decoded.exp);
+                        }
+                    } catch {
+                        console.log('Failed to process admin access token during logout');
+                    }
                 }
             }
 
