@@ -2,7 +2,7 @@ import { authConfig } from '@/config/auth';
 import prisma from '@/config/db';
 import { AccessTokenPayload, TokenResponse, UserPayload } from '@/types/auth';
 import crypto from 'crypto';
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { SuperUser } from '@prisma/client';
 
@@ -47,29 +47,28 @@ const cleanupExpiredTokens = async () => {
 // Run cleanup every hour
 setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
 
-// generate tokens
-export const generateTokens = async (userId: string, isAdmin: boolean = false): Promise<TokenResponse> => {
+// generate tokens with token family tracking (family only)
+export const generateTokens = async (
+    userId: string,
+    isAdmin: boolean = false,
+    existingFamilyId?: string
+): Promise<TokenResponse> => {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, username: true, image: true }
     });
     if (!user) throw new Error('User not found');
 
-    // Revoke only matching type refresh tokens for this user
-    await prisma.refreshToken.updateMany({
-        where: {
-            userId,
-            isAdmin
-        },
-        data: { isRevoked: true }
-    });
+    // Determine family ID: use existing for token refresh, create new for login
+    const familyId = existingFamilyId || crypto.randomBytes(20).toString('hex');
 
+    // Generate tokens
     const accessToken = jwt.sign(
-        { 
-            id: user.id, 
-            username: user.username, 
+        {
+            id: user.id,
+            username: user.username,
             image: user.image || undefined,
-            isAdmin 
+            isAdmin
         },
         authConfig.jwt.secret,
         { expiresIn: authConfig.jwt.accessTokenExpiresIn }
@@ -78,12 +77,14 @@ export const generateTokens = async (userId: string, isAdmin: boolean = false): 
     const refreshToken = crypto.randomBytes(40).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    // Create new refresh token with family tracking
     await prisma.refreshToken.create({
-        data: { 
-            token: refreshToken, 
-            userId: user.id, 
+        data: {
+            token: refreshToken,
+            userId: user.id,
             expiresAt,
-            isAdmin 
+            isAdmin,
+            familyId,
         }
     });
 
@@ -102,10 +103,10 @@ export const logout = async (req: Request, res: Response) => {
         let userIsAdmin = false;
         if (adminAccessToken) {
             try {
-                const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                const decoded = jwt.verify(adminAccessToken, authConfig.jwt.secret) as AccessTokenPayload;
                 userIsAdmin = decoded?.isAdmin || false;
             } catch (error) {
-                console.log('Failed to decode admin token during logout, treating as non-admin');
+                console.log('Failed to verify admin token during logout, treating as non-admin');
                 userIsAdmin = false;
             }
         }
@@ -114,33 +115,61 @@ export const logout = async (req: Request, res: Response) => {
         const token = req.headers.authorization?.split(' ')[1];
         if (token) {
             try {
-                const decoded = jwt.decode(token) as AccessTokenPayload;
+                const decoded = jwt.verify(token, authConfig.jwt.secret) as AccessTokenPayload;
                 if (decoded?.exp) {
                     blacklistToken(token, decoded.exp);
                 }
             } catch (error) {
-                console.log('Failed to decode authorization header token during logout');
+                // If verification fails, try to decode to get exp for blacklisting
+                try {
+                    const decoded = jwt.decode(token) as AccessTokenPayload;
+                    if (decoded?.exp) {
+                        blacklistToken(token, decoded.exp);
+                    }
+                } catch {
+                    console.log('Failed to process authorization header token during logout');
+                }
             }
         }
 
         // Always clear client tokens
         if (clientAccessToken) {
             try {
-                const decoded = jwt.decode(clientAccessToken) as AccessTokenPayload;
+                const decoded = jwt.verify(clientAccessToken, authConfig.jwt.secret) as AccessTokenPayload;
                 if (decoded?.exp) {
                     blacklistToken(clientAccessToken, decoded.exp);
                 }
             } catch (error) {
-                console.log('Failed to decode client access token during logout');
+                // If verification fails, try to decode to get exp for blacklisting
+                try {
+                    const decoded = jwt.decode(clientAccessToken) as AccessTokenPayload;
+                    if (decoded?.exp) {
+                        blacklistToken(clientAccessToken, decoded.exp);
+                    }
+                } catch {
+                    console.log('Failed to process client access token during logout');
+                }
             }
         }
 
+        // Revoke only the current token family (not all user tokens)
         const clientRefreshToken = req.cookies[authConfig.cookie.client.refreshTokenName];
         if (clientRefreshToken) {
-            await prisma.refreshToken.updateMany({
+            const storedToken = await prisma.refreshToken.findUnique({
                 where: { token: clientRefreshToken },
-                data: { isRevoked: true }
+                select: { familyId: true, userId: true }
             });
+
+            if (storedToken) {
+                // Revoke only this family (allows other devices to stay logged in)
+                await prisma.refreshToken.updateMany({
+                    where: {
+                        familyId: storedToken.familyId,
+                        userId: storedToken.userId
+                    },
+                    data: { isRevoked: true }
+                });
+            }
         }
 
         // Clear client cookies
@@ -151,21 +180,40 @@ export const logout = async (req: Request, res: Response) => {
         if (userIsAdmin) {
             if (adminAccessToken) {
                 try {
-                    const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                    const decoded = jwt.verify(adminAccessToken, authConfig.jwt.secret) as AccessTokenPayload;
                     if (decoded?.exp) {
                         blacklistToken(adminAccessToken, decoded.exp);
                     }
                 } catch (error) {
-                    console.log('Failed to decode admin access token during logout');
+                    // If verification fails, try to decode to get exp for blacklisting
+                    try {
+                        const decoded = jwt.decode(adminAccessToken) as AccessTokenPayload;
+                        if (decoded?.exp) {
+                            blacklistToken(adminAccessToken, decoded.exp);
+                        }
+                    } catch {
+                        console.log('Failed to process admin access token during logout');
+                    }
                 }
             }
 
             const adminRefreshToken = req.cookies[authConfig.cookie.admin.refreshTokenName];
             if (adminRefreshToken) {
-                await prisma.refreshToken.updateMany({
+                const storedToken = await prisma.refreshToken.findUnique({
                     where: { token: adminRefreshToken },
-                    data: { isRevoked: true }
+                    select: { familyId: true, userId: true }
                 });
+
+                if (storedToken) {
+                    // Revoke only this family
+                    await prisma.refreshToken.updateMany({
+                        where: {
+                            familyId: storedToken.familyId,
+                            userId: storedToken.userId
+                        },
+                        data: { isRevoked: true }
+                    });
+                }
             }
 
             // Clear admin cookies

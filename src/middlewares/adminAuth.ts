@@ -33,7 +33,7 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
                 return res.status(403).json({ message: 'Not authorized as admin' });
             }
 
-            const tokens = await generateTokens(storedToken.userId, true);
+            const tokens = await generateTokens(storedToken.userId, true, storedToken.familyId);
 
             res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
                 ...authConfig.cookie.admin.options,
@@ -97,7 +97,7 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
                 return res.status(403).json({ message: 'Not authorized as admin' });
             }
 
-            const tokens = await generateTokens(storedToken.userId, true);
+            const tokens = await generateTokens(storedToken.userId, true, storedToken.familyId);
 
             res.cookie(authConfig.cookie.admin.accessTokenName, tokens.accessToken, {
                 ...authConfig.cookie.admin.options,

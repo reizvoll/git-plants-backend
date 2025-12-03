@@ -33,7 +33,7 @@ export const getSession = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// refresh token endpoint
+// refresh token endpoint (family tracking only)
 export const refreshToken = async (req: Request, res: Response) => {
   try {
     const isAdmin = req.cookies[authConfig.cookie.admin.refreshTokenName] !== undefined;
@@ -49,11 +49,17 @@ export const refreshToken = async (req: Request, res: Response) => {
       include: { user: true }
     });
 
+    // Basic validation
     if (!storedToken || storedToken.expiresAt < new Date() || storedToken.isRevoked) {
       return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
-    const tokens = await generateTokens(storedToken.userId, storedToken.isAdmin);
+    // Generate new tokens with same familyId (for multi-device support)
+    const tokens = await generateTokens(
+      storedToken.userId,
+      storedToken.isAdmin,
+      storedToken.familyId // Pass existing familyId
+    );
 
     res.cookie(cookieConfig.accessTokenName, tokens.accessToken, {
       ...cookieConfig.options,
@@ -65,7 +71,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       message: 'Token refreshed successfully',
       user: {
         id: storedToken.user.id,
