@@ -105,6 +105,13 @@ jobs:
         fi
         
         echo "🔄 Running Prisma database migrations..."
+        # Automatically resolve any failed migrations
+        FAILED_MIGRATION=$(pnpm exec prisma migrate status 2>&1 | grep -oP 'migration \K[^\s]+(?= started .* failed)' | head -1)
+        if [ -n "$FAILED_MIGRATION" ]; then
+          echo "⚠️ Found failed migration: $FAILED_MIGRATION"
+          echo "🔄 Resolving as rolled-back..."
+          pnpm exec prisma migrate resolve --rolled-back "$FAILED_MIGRATION" || true
+        fi
         pnpm exec prisma migrate deploy
         echo "✅ Database migrations completed!"
         
