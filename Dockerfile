@@ -1,5 +1,8 @@
 FROM node:22-alpine
 
+# Set timezone to UTC for global service
+ENV TZ=UTC
+
 # Install pnpm
 RUN corepack enable
 

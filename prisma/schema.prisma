@@ -13,8 +13,8 @@ model User {
   username         String
   accessToken      String
   image            String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime         @default(now()) @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @db.Timestamptz
   githubActivities GitHubActivity[]
   refreshTokens    RefreshToken[]
   seeds            Seed?
@@ -42,9 +42,9 @@ model UserPlant {
   userId         String
   monthlyPlantId Int
   stage          GrowthStage  @default(SEED)
-  updatedAt      DateTime     @updatedAt
+  updatedAt      DateTime     @updatedAt @db.Timestamptz
   harvestCount   Int          @default(0)
-  harvestedAt    DateTime?
+  harvestedAt    DateTime?    @db.Timestamptz
   monthlyPlant   MonthlyPlant @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -64,8 +64,8 @@ model GardenItem {
   category    String
   imageUrl    String
   price       Int
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime     @default(now()) @db.Timestamptz
+  updatedAt   DateTime     @updatedAt @db.Timestamptz
   updatedById String?
   id          Int          @id @default(autoincrement())
   iconUrl     String
@@ -80,7 +80,7 @@ model UserItem {
   id         String     @id @default(cuid())
   userId     String
   equipped   Boolean    @default(false)
-  acquiredAt DateTime   @default(now())
+  acquiredAt DateTime   @default(now()) @db.Timestamptz
   itemId     Int
   item       GardenItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -93,8 +93,8 @@ model Badge {
   name        String
   condition   String
   imageUrl    String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime    @default(now()) @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @db.Timestamptz
   updatedById String?
   id          Int         @id @default(autoincrement())
   updatedBy   SuperUser?  @relation("BadgeUpdatedBy", fields: [updatedById], references: [id])
@@ -104,7 +104,7 @@ model Badge {
 model UserBadge {
   id        String   @id @default(cuid())
   userId    String
-  awardedAt DateTime @default(now())
+  awardedAt DateTime @default(now()) @db.Timestamptz
   badgeId   Int
   badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -118,8 +118,8 @@ model MonthlyPlant {
   description  String
   month        Int
   year         Int
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime    @default(now()) @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @db.Timestamptz
   updatedById  String?
   id           Int         @id @default(autoincrement())
   iconUrl      String
@@ -139,8 +139,8 @@ model UserCrop {
   userId         String
   monthlyPlantId Int
   quantity       Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now()) @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @db.Timestamptz
   monthlyPlant   MonthlyPlant @relation(fields: [monthlyPlantId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -152,8 +152,8 @@ model UserCrop {
 model SuperUser {
   id              String         @id @default(cuid())
   userId          String         @unique
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime       @default(now()) @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @db.Timestamptz
   badgeEdits      Badge[]        @relation("BadgeUpdatedBy")
   itemEdits       GardenItem[]   @relation("GardenItemUpdatedBy")
   plantEdits      MonthlyPlant[] @relation("MonthlyPlantUpdatedBy")
@@ -165,10 +165,10 @@ model RefreshToken {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String
-  expiresAt DateTime
+  expiresAt DateTime @db.Timestamptz
   isRevoked Boolean  @default(false)
   isAdmin   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz
   familyId  String
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -182,11 +182,11 @@ model UpdateNote {
   title       String
   description String
   isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime     @default(now()) @db.Timestamptz
+  updatedAt   DateTime     @updatedAt @db.Timestamptz
   updatedById String?
-  publishedAt DateTime
-  validUntil  DateTime?
+  publishedAt DateTime     @db.Timestamptz
+  validUntil  DateTime?    @db.Timestamptz
   imageUrls   String[]
   updatedBy   SuperUser?   @relation("UpdateNoteUpdatedBy", fields: [updatedById], references: [id])
   gardenItems GardenItem[] @relation("GardenItemToUpdateNote")
@@ -202,8 +202,8 @@ model Translation {
   field      String
   language   String
   value      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
 
   @@unique([entityType, entityId, field, language])
   @@index([entityType, entityId, language])
