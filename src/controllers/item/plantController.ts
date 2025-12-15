@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { calculateMonthlyContributions, autoUpdateAllUserPlants } from '@/controllers/auth/userController';
 import { checkAndAwardBadges } from '@/services/badgeService';
 import { applyTranslations, SupportedLanguage } from '@/services/translationService';
+import { getTimezoneFromRequest } from '@/utils/timezone';
 
 // Handle plant harvest - create crop item and reset plant
 async function handleHarvest(userPlant: any, userId: string) {
@@ -69,7 +70,8 @@ async function handleHarvest(userPlant: any, userId: string) {
 export const getPlants = async (req: AuthRequest, res: Response) => {
   try {
     // 통합된 식물 업데이트 함수 사용
-    const plantsWithContributions = await autoUpdateAllUserPlants(req.user!.id);
+    const timezone = getTimezoneFromRequest(req);
+    const plantsWithContributions = await autoUpdateAllUserPlants(req.user!.id, timezone);
     res.json(plantsWithContributions);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching plants' });
@@ -92,9 +94,10 @@ export const getPlantById = async (req: AuthRequest, res: Response) => {
     if (!userPlant) {
       return res.status(404).json({ message: 'Plant not found' });
     }
-    
+
     // 통합된 식물 업데이트 시스템 사용
-    const allPlants = await autoUpdateAllUserPlants(req.user!.id);
+    const timezone = getTimezoneFromRequest(req);
+    const allPlants = await autoUpdateAllUserPlants(req.user!.id, timezone);
     const targetPlant = allPlants.find(plant => plant.id === req.params.id);
     
     if (!targetPlant) {
@@ -124,12 +127,12 @@ export const createPlant = async (req: AuthRequest, res: Response) => {
     if (!monthlyPlant) {
       return res.status(404).json({ message: 'Monthly plant not found' });
     }
-    
+
     // Check if user already has a plant for this month/year
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    
+    const timezone = getTimezoneFromRequest(req);
+    const { getCurrentMonthYear } = await import('@/utils/timezone');
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone);
+
     // Only allow planting current month's plant
     if (monthlyPlant.month !== currentMonth || monthlyPlant.year !== currentYear) {
       return res.status(400).json({ message: 'You can only plant the current month\'s plant' });
@@ -184,9 +187,10 @@ export const updatePlant = async (req: AuthRequest, res: Response) => {
         monthlyPlant: true
       }
     });
-    
+
     // Calculate contributions for response using unified function
-    const contributions = await calculateMonthlyContributions(req.user!.id);
+    const timezone = getTimezoneFromRequest(req);
+    const contributions = await calculateMonthlyContributions(req.user!.id, timezone);
     
     res.json({
       ...updatedPlant,
@@ -241,9 +245,10 @@ export const updatePlantGrowth = async (req: AuthRequest, res: Response) => {
     if (!userPlant) {
       return res.status(404).json({ message: 'Plant not found' });
     }
-    
+
     // 통합된 업데이트 시스템 사용
-    const allPlants = await autoUpdateAllUserPlants(req.user!.id);
+    const timezone = getTimezoneFromRequest(req);
+    const allPlants = await autoUpdateAllUserPlants(req.user!.id, timezone);
     const targetPlant = allPlants.find(plant => plant.id === userPlantId);
     
     if (!targetPlant) {
@@ -260,9 +265,9 @@ export const updatePlantGrowth = async (req: AuthRequest, res: Response) => {
 export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
   try {
     const locale = (req.query.locale as SupportedLanguage) || 'en';
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+    const timezone = getTimezoneFromRequest(req);
+    const { getCurrentMonthYear } = await import('@/utils/timezone');
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone);
     
     const monthlyPlant = await prisma.monthlyPlant.findFirst({
       where: {

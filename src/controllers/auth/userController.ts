@@ -6,12 +6,12 @@ import { GitHubCacheService } from '@/services/cacheService';
 import { checkAndAwardBadges } from '@/services/badgeService';
 import { applyTranslations, SupportedLanguage } from '@/services/translationService';
 import redisClient from '@/config/redis';
+import { getTimezoneFromRequest } from '@/utils/timezone';
 
 // calculate monthly contributions with Redis cache
-export async function calculateMonthlyContributions(userId: string): Promise<number> {
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth() + 1;
+export async function calculateMonthlyContributions(userId: string, timezone?: string): Promise<number> {
+  const { getCurrentMonthYear } = await import('@/utils/timezone');
+  const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone || 'UTC');
   
   // check cache
   const cachedCount = await GitHubCacheService.getMonthlyContribution(
@@ -90,21 +90,20 @@ async function setPlantUpdateTime(userId: string): Promise<void> {
 }
 
 // update all user plants automatically (with lazy update)
-export async function autoUpdateAllUserPlants(userId: string) {
+export async function autoUpdateAllUserPlants(userId: string, timezone?: string) {
   try {
     // Check if update is needed
     const needsUpdate = await shouldUpdatePlants(userId);
     if (!needsUpdate) {
       // Return cached plants data
-      return await getCachedPlantsData(userId);
+      return await getCachedPlantsData(userId, timezone);
     }
 
-    const monthlyContributions = await calculateMonthlyContributions(userId);
+    // Get current month and year based on user's timezone (follows GitHub contribution timezone)
+    const { getCurrentMonthYear } = await import('@/utils/timezone');
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone || 'UTC');
 
-    // Get current month and year
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+    const monthlyContributions = await calculateMonthlyContributions(userId, timezone);
 
     // Common select for UserPlant queries
     const userPlantSelect = {
@@ -278,7 +277,7 @@ async function cachePlantsData(userId: string, plantsData: any[]): Promise<void>
 }
 
 // get cached plants data
-async function getCachedPlantsData(userId: string): Promise<any[]> {
+async function getCachedPlantsData(userId: string, timezone?: string): Promise<any[]> {
   try {
     const cacheKey = `plants_data:${userId}`;
     const cachedData = await GitHubCacheService.get(cacheKey);
@@ -288,20 +287,19 @@ async function getCachedPlantsData(userId: string): Promise<any[]> {
     }
 
     // If no cached data, fallback to DB query without update
-    return await getPlantDataFromDB(userId);
+    return await getPlantDataFromDB(userId, timezone);
   } catch (error) {
     console.error('Error getting cached plants data:', error);
     // Fallback to DB query
-    return await getPlantDataFromDB(userId);
+    return await getPlantDataFromDB(userId, timezone);
   }
 }
 
 // get plants data from DB without update logic
-async function getPlantDataFromDB(userId: string): Promise<any[]> {
+async function getPlantDataFromDB(userId: string, timezone?: string): Promise<any[]> {
   try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+    const { getCurrentMonthYear } = await import('@/utils/timezone');
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone || 'UTC');
 
     const activePlants = await prisma.userPlant.findMany({
       where: {
@@ -324,7 +322,7 @@ async function getPlantDataFromDB(userId: string): Promise<any[]> {
     });
 
     // Get current contributions for display
-    const monthlyContributions = await calculateMonthlyContributions(userId);
+    const monthlyContributions = await calculateMonthlyContributions(userId, timezone);
 
     return activePlants.map(plant => {
       const targetHarvestCount = Math.floor(monthlyContributions / 70);
@@ -478,7 +476,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     }
 
     // Update plants first
-    const plantsWithContributions = await autoUpdateAllUserPlants(userId);
+    const timezone = getTimezoneFromRequest(req);
+    const plantsWithContributions = await autoUpdateAllUserPlants(userId, timezone);
 
     // Check and award badges
     const newBadges = await checkAndAwardBadges(userId);
@@ -620,12 +619,12 @@ export const createUserPlant = async (req: AuthRequest, res: Response) => {
     if (!monthlyPlant) {
       return res.status(404).json({ message: 'Monthly plant not found' });
     }
-    
+
     // Check if it's current month's plant
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    
+    const timezone = getTimezoneFromRequest(req);
+    const { getCurrentMonthYear } = await import('@/utils/timezone');
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone);
+
     if (monthlyPlant.month !== currentMonth || monthlyPlant.year !== currentYear) {
       return res.status(400).json({ message: 'You can only plant the current month\'s plant' });
     }
@@ -659,9 +658,9 @@ export const createUserPlant = async (req: AuthRequest, res: Response) => {
 export const getCurrentMonthPlant = async (req: AuthRequest, res: Response) => {
   try {
     const locale = (req.query.locale as SupportedLanguage) || 'en';
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+    const timezone = getTimezoneFromRequest(req);
+    const { getCurrentMonthYear } = await import('@/utils/timezone');
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone);
 
     const monthlyPlant = await prisma.monthlyPlant.findFirst({
       select: monthlyPlantSelect,
@@ -744,7 +743,8 @@ export const getPublicUserProfile = async (req: any, res: Response) => {
     });
 
     // Get user's plants with same auto-update logic as private API
-    const plantsWithContributions = await autoUpdateAllUserPlants(userId);
+    const timezone = getTimezoneFromRequest(req);
+    const plantsWithContributions = await autoUpdateAllUserPlants(userId, timezone);
 
     // Apply translations to equipped items
     const translatedEquippedItems = await Promise.all(
