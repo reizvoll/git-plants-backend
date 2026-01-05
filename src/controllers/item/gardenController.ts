@@ -5,6 +5,7 @@ import { UpdateNoteService } from '@/services/updateNoteService';
 import { checkAndAwardBadges } from '@/services/badgeService';
 import { applyTranslations, SupportedLanguage } from '@/services/translationService';
 import { invalidatePlantsCache } from '@/controllers/auth/userController';
+import { getTimezoneFromRequest, getCurrentMonthYear } from '@/utils/timezone';
 
 // GARDEN ITEMS
 
@@ -462,13 +463,14 @@ export const getMonthlyPlants = async (req: Request, res: Response) => {
       
       res.json(translatedPlant);
     } else {
-      // Default to current month if not specified
-      const currentDate = new Date();
+      // Default to current month based on user's timezone
+      const timezone = getTimezoneFromRequest(req);
+      const { month: currentMonth, year: currentYear } = getCurrentMonthYear(timezone);
       const monthlyPlant = await prisma.monthlyPlant.findFirst({
         select: monthlyPlantSelect,
         where: {
-          month: currentDate.getMonth() + 1, // 1-12 for months
-          year: currentDate.getFullYear()
+          month: currentMonth,
+          year: currentYear
         }
       });
       
